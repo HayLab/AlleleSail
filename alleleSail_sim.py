@@ -6,7 +6,6 @@ import argparse
 import copy
 import time
 import os
-from tqdm import tqdm
 
 ### Step 1: Basic Input ###
 ALLELES = [['E', 'O'], ['S', 'W']]
