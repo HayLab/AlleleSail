@@ -52,12 +52,12 @@ plasma_pal <- c(viridis::viridis(n = 1000, direction = -1), "#e32f6c")
 Get data for 10% introduction frequency 
 
 ```{r}
-gmcwithSail_allele2 <- read.csv("alleleSail_data/1-11/EvI/introFreq_0.100_NEWallele.csv") %>%
+gmcwithSail_allele2 <- read.csv("data/1-11/EvI/introFreq_0.100_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   mutate(type = "with Sail")
 
-gmcwithSail_total_ds2 <- read.csv("alleleSail_data/1-11/EvI/introFreq_0.100_total.csv") %>%
+gmcwithSail_total_ds2 <- read.csv("data/1-11/EvI/introFreq_0.100_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   group_by(Generation, introFreq, Scost, Run) %>%
@@ -65,13 +65,13 @@ gmcwithSail_total_ds2 <- read.csv("alleleSail_data/1-11/EvI/introFreq_0.100_tota
   mutate(type = "with Sail")
 
 # get without-sail data
-gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
   mutate(type = "no Sail")
 
-gmcnoSail_total_ds2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_total.csv") %>%
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   group_by(Generation, introFreq, Scost, Run) %>%
@@ -143,10 +143,13 @@ Two panels of heatmaps, homozygous frequency in the population vs. carriers, for
 fig_height = knitr::opts_current$get("fig.height")
 fig_width = knitr::opts_current$get("fig.width")
 
-EvI_O <- read.csv("alleleSail_data/1-11/EvI/last_gen_O_carrier.csv") %>%
+fig_height = 6.7
+fig_width = 8
+
+EvI_O <- read.csv("data/1-11/EvI/last_gen_O_carrier.csv") %>%
   mutate(fitCost = fitCost * 2)
 
-EvI_E <- read.csv("alleleSail_data/1-11/EvI/last_gen_E_carrier.csv") %>%
+EvI_E <- read.csv("data/1-11/EvI/last_gen_E_carrier.csv") %>%
   mutate(fitCost = fitCost * 2)
 
 EvI_homozygous <- EvI_O %>%
@@ -229,7 +232,7 @@ EvI_carriers <- EvI_E %>%
   mutate(p_c = E_count / totalPop) %>%
   group_by(introFreq, fitCost) %>%
   summarise(`Percent Carriers` = mean(p_c)) %>%
-  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Percent Carriers`, color = `Percent Carriers`)) +
+  ggplot(aes(x=fitCost, y=introFreq, fill = `Percent Carriers`, color = `Percent Carriers`)) +
   geom_tile() +
   scale_fill_gradientn(colors = plasma_pal, breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0),
                        guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
@@ -251,7 +254,7 @@ EvI_LEGEND_2 <- EvI_E %>%
   mutate(p_c = E_count / totalPop) %>%
   group_by(introFreq, fitCost) %>%
   summarise(`Percent Carriers` = mean(p_c)) %>%
-  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Percent Carriers`)) + 
+  ggplot(aes(x=fitCost, y=introFreq, fill = `Percent Carriers`)) + 
   geom_tile() + 
   theme_classic() + 
   scale_fill_gradientn(colors = plasma_pal[999:1001], 
@@ -298,9 +301,9 @@ comb_fig_annotated <- comb_fig +
   annotate("segment", x = left_x, xend = right_x, y = high_y, yend = high_y,
            colour = plasma_pal[1001], linewidth = 0.8)
 
-ggsave("fig_2-Modification_Neutral-Editor.svg", plot = comb_fig_annotated,
+ggsave("figs/fig_2-Modification_Neutral-Editor.svg", plot = comb_fig_annotated,
        height = fig_height, width = fig_width)
-ggsave("fig_2-Modification_Neutral-Editor.png", plot = comb_fig_annotated,
+ggsave("figs/fig_2-Modification_Neutral-Editor.png", plot = comb_fig_annotated,
        height = fig_height, width = fig_width)
 
 comb_fig_annotated
@@ -334,26 +337,26 @@ get_DAR_noSail_hm <- function(filename, type_label) {
   mutate(type = type_label)
 }
 
-rec_total_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_rec_total.csv", "recessive") %>%
+rec_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_rec_total.csv", "recessive") %>%
   mutate(totalPop = Count) %>% select(-Count) %>%
   group_by(Generation, introFreq, Ecost, Run, type) %>%
   mutate(totalPop = sum(totalPop))
 
-rec_alleles_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_rec_allele.csv", "recessive")
+rec_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_rec_allele.csv", "recessive")
 
-add_total_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_add_total.csv", "additive") %>%
-  mutate(totalPop = Count) %>% select(-Count) %>%
-  group_by(Generation, introFreq, Ecost, Run, type) %>%
-  mutate(totalPop = sum(totalPop))
-  
-add_alleles_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_add_allele.csv", "additive")
-
-dom_total_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_dom_total.csv", "dominant") %>%
+add_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_add_total.csv", "additive") %>%
   mutate(totalPop = Count) %>% select(-Count) %>%
   group_by(Generation, introFreq, Ecost, Run, type) %>%
   mutate(totalPop = sum(totalPop))
   
-dom_alleles_hm <- get_DAR_Sail_hm("alleleSail_data/3-11/Sail_modification_MC_dom_allele.csv", "dominant")
+add_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_add_allele.csv", "additive")
+
+dom_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_dom_total.csv", "dominant") %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+  
+dom_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_dom_allele.csv", "dominant")
 
 Sail_dom_hm <- dom_alleles_hm %>%
   group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
@@ -448,21 +451,21 @@ get_DAR_noSail <- function(filename, type_label, introFreqs = c(0.025, 0.05, 0.1
 Get Data
 
 ```{r}
-dom_total <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_dom_total.csv", "dominant",
+dom_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_dom_total.csv", "dominant",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
-dom_alleles <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_dom_NEWallele.csv", "dominant",
+dom_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_dom_NEWallele.csv", "dominant",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
 
-add_total <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_add_total.csv", "additive",
+add_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_add_total.csv", "additive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
   mutate(Ecost = Ecost * 2)
-add_alleles <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_add_NEWallele.csv", "additive",
+add_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_add_NEWallele.csv", "additive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
   mutate(Ecost = Ecost * 2)
 
-rec_total <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_rec_total.csv", "recessive",
+rec_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_rec_total.csv", "recessive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
-rec_alleles <- get_DAR_Sail("alleleSail_data/3-11/Sail_modification_MC_rec_NEWallele.csv", "recessive",
+rec_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_rec_NEWallele.csv", "recessive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
 
 Sail_allele <- rbind(rec_alleles, add_alleles, dom_alleles)
@@ -479,21 +482,21 @@ Sail_DAR_data <- Sail_allele %>%
   group_by(Generation, introFreq, Ecost, Allele, type) %>%
   summarise(`Average Frequency` = mean(percent))
 
-dom_total <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_dom_total.csv", "dominant",
+dom_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_dom_total.csv", "dominant",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
-dom_alleles <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_dom_NEWallele.csv", "dominant",
+dom_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_dom_NEWallele.csv", "dominant",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
 
-add_total <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_add_total.csv", "additive",
+add_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_add_total.csv", "additive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
   mutate(Ecost = Ecost * 2)
-add_alleles <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_add_NEWallele.csv", "additive",
+add_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_add_NEWallele.csv", "additive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
   mutate(Ecost = Ecost * 2)
 
-rec_total <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_rec_total.csv", "recessive",
+rec_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_rec_total.csv", "recessive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
-rec_alleles <- get_DAR_noSail("alleleSail_data/3-11/noSail_modification_MC_rec_NEWallele.csv", "recessive",
+rec_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_rec_NEWallele.csv", "recessive",
                           introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
 
 noSail_allele <- rbind(rec_alleles, add_alleles, dom_alleles)
@@ -627,9 +630,9 @@ comb_fig_annotated <- comb_fig +
            colour = plasma_pal[1001], linewidth = 0.8)
 comb_fig_annotated
 
-ggsave("supp-fig_1-DAR_hm.svg", comb_fig_annotated, bg = "white",
+ggsave("figs/supp-fig_1-DAR_hm.svg", comb_fig_annotated, bg = "white",
        width = 7, height = 5)
-ggsave("supp-fig_1-DAR_hm.png", comb_fig_annotated, bg = "white",
+ggsave("figs/supp-fig_1-DAR_hm.png", comb_fig_annotated, bg = "white",
        width = 7, height = 5)
 
 print("Saved to supp-fig_1-DAR_hm")
@@ -641,12 +644,12 @@ print("Saved to supp-fig_1-DAR_hm")
 
 Figure 2, but for SvI (costs on Wind)
 ```{r}
-gmcwithSail_allele2 <- read.csv("alleleSail_data/1-11/SvI/introFreq_0.100_NEWallele.csv") %>%
+gmcwithSail_allele2 <- read.csv("data/1-11/SvI/introFreq_0.100_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   mutate(type = "with Sail")
 
-gmcwithSail_total_ds2 <- read.csv("alleleSail_data/1-11/SvI/introFreq_0.100_total.csv") %>%
+gmcwithSail_total_ds2 <- read.csv("data/1-11/SvI/introFreq_0.100_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   group_by(Generation, introFreq, Scost, Run) %>%
@@ -692,9 +695,9 @@ Two panels, homozygous frequency in the population vs. carriers, for cost on Sai
 fig_height = knitr::opts_current$get("fig.height")
 fig_width = knitr::opts_current$get("fig.width")
 
-SvI_O <- read.csv("alleleSail_data/1-11/SvI/last_gen_O_carrier.csv")
+SvI_O <- read.csv("data/1-11/SvI/last_gen_O_carrier.csv")
 
-SvI_E <- read.csv("alleleSail_data/1-11/SvI/last_gen_E_carrier.csv")
+SvI_E <- read.csv("data/1-11/SvI/last_gen_E_carrier.csv")
 
 SvI_homozygous <- SvI_O %>% filter(fitCost >= 0) %>%
   group_by(introFreq, fitCost, run) %>%
@@ -798,9 +801,9 @@ comb_fig_annotated <- comb_fig +
 
 comb_fig_annotated
 
-ggsave("supp-fig_2-Modification_Neutral-Edit.svg", plot = comb_fig_annotated,
+ggsave("figs/supp-fig_2-Modification_Neutral-Edit.svg", plot = comb_fig_annotated,
        height = 6.7, width = 8)
-ggsave("supp-fig_2-Modification_Neutral-Edit.png", plot = comb_fig_annotated,
+ggsave("figs/supp-fig_2-Modification_Neutral-Edit.png", plot = comb_fig_annotated,
        height = 6.7, width = 8)
 
 print("Saved to supp-fig_2-Modification_Neutral-Edit")
@@ -813,14 +816,14 @@ compare sail vs. no sail data
 
 ```{r}
 #### no MC
-no_mc_total_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_noMC_smallRuns_total.csv") %>%
+no_mc_total_LE <- read.csv("data/2-5/low_efficiencies_noMC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   group_by(Generation, efficiency, fitCost, Run) %>%
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "no MC")
 
-no_mc_allele_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_noMC_smallRuns_NEWallele.csv") %>%
+no_mc_allele_LE <- read.csv("data/2-5/low_efficiencies_noMC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   group_by(Generation, efficiency, fitCost, Allele, Run) %>%
@@ -828,14 +831,14 @@ no_mc_allele_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_noMC_smallRuns
   mutate(type = "no MC")
 
 #### MC
-mc_total_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_MC_smallRuns_total.csv") %>%
+mc_total_LE <- read.csv("data/2-5/low_efficiencies_MC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   group_by(Generation, efficiency, fitCost, Run) %>%
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "MC")
 
-mc_allele_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_MC_smallRuns_NEWallele.csv") %>%
+mc_allele_LE <- read.csv("data/2-5/low_efficiencies_MC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   group_by(Generation, efficiency, fitCost, Allele, Run) %>%
@@ -843,7 +846,7 @@ mc_allele_LE <- read.csv("alleleSail_data/2-5/low_efficiencies_MC_smallRuns_NEWa
   mutate(type = "MC")
 
 # no sail
-gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
@@ -853,7 +856,7 @@ gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWal
   mutate(type = "no Editor",
          efficiency = 2)
 
-gmcnoSail_total_ds2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_total.csv") %>%
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05)) %>%
@@ -921,9 +924,9 @@ fig2_annot <- ggarrange(fig2) + annotate("rect",
            color = "white", fill = "white", linewidth = 0)
 fig2_annot
 
-ggsave("fig_3-decreased_efficiency-modification.svg", plot = fig2_annot,
+ggsave("figs/fig_3-decreased_efficiency-modification.svg", plot = fig2_annot,
        height = fig_height, width = fig_width)
-ggsave("fig_3-decreased_efficiency-modification.png", plot = fig2_annot,
+ggsave("figs/fig_3-decreased_efficiency-modification.png", plot = fig2_annot,
        height = fig_height, width = fig_width)
 
 print("Saved to fig_3-decreased_efficiency-modification")
@@ -935,7 +938,7 @@ print("Saved to fig_3-decreased_efficiency-modification")
 compare sail vs. no sail data - 20% intro
 ```{r}
 #### no MC
-no_mc_total_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_noMC_smallRuns_total.csv") %>%
+no_mc_total_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_noMC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -943,7 +946,7 @@ no_mc_total_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_noM
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "no MC")
 
-no_mc_allele_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_noMC_smallRuns_NEWallele.csv") %>%
+no_mc_allele_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_noMC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -952,7 +955,7 @@ no_mc_allele_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_no
   mutate(type = "no MC")
 
 #### MC
-mc_total_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_MC_smallRuns_total.csv") %>%
+mc_total_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_MC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -960,7 +963,7 @@ mc_total_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_MC_sma
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "MC")
 
-mc_allele_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_MC_smallRuns_NEWallele.csv") %>%
+mc_allele_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_MC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -969,7 +972,7 @@ mc_allele_LE_i20 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_20_MC_sm
   mutate(type = "MC")
 
 # no sail
-gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   filter(introFreq == 0.2, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
@@ -979,7 +982,7 @@ gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWal
   mutate(type = "no Editor",
          efficiency = 2)
 
-gmcnoSail_total_ds2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_total.csv") %>%
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   filter(introFreq == 0.2, Scost %in% c(0.05, 0.00, -0.05)) %>%
@@ -1000,7 +1003,7 @@ LE_big_i20 <- merge(alleles_big, total_big) %>%
 compare sail vs. no sail data - 40% intro
 ```{r}
 #### no MC
-no_mc_total_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_noMC_smallRuns_total.csv") %>%
+no_mc_total_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_noMC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -1008,7 +1011,7 @@ no_mc_total_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_noM
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "no MC")
 
-no_mc_allele_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_noMC_smallRuns_NEWallele.csv") %>%
+no_mc_allele_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_noMC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -1017,7 +1020,7 @@ no_mc_allele_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_no
   mutate(type = "no MC")
 
 #### MC
-mc_total_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_MC_smallRuns_total.csv") %>%
+mc_total_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_MC_smallRuns_total.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -1025,7 +1028,7 @@ mc_total_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_MC_sma
   summarise(totalPop = sum(Count)) %>%
   mutate(type = "MC")
 
-mc_allele_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_MC_smallRuns_NEWallele.csv") %>%
+mc_allele_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_MC_smallRuns_NEWallele.csv") %>%
   clean() %>%
   transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
   filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
@@ -1034,7 +1037,7 @@ mc_allele_LE_i40 <- read.csv("alleleSail_data/2-23/low_efficiencies_int_40_MC_sm
   mutate(type = "MC")
 
 # no sail
-gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
   filter(introFreq == 0.4, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
@@ -1044,7 +1047,7 @@ gmcnoSail_allele2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_NEWal
   mutate(type = "no Editor",
          efficiency = 2)
 
-gmcnoSail_total_ds2 <- read.csv("alleleSail_data/1-11/noSail_modification_MC_total.csv") %>%
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
   clean() %>%
   transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
   filter(introFreq == 0.4, Scost %in% c(0.05, 0.00, -0.05)) %>%
@@ -1064,7 +1067,7 @@ LE_big_i40 <- merge(alleles_big, total_big) %>%
 
 Just fitness costs + higher introduction frequencies
 ```{r}
-percent_10 <- LE_big %>% filter(fitCost > 0) %>% mutate(intro = "10% introduction")
+percent_10 <- LE_big %>% filter(fitCost > 0.03, Allele == "E") %>% mutate(intro = "10% introduction")
 percent_20 <- LE_big_i20 %>% filter(fitCost > 0) %>% mutate(intro = "20% introduction")
 percent_40 <- LE_big_i40 %>% filter(fitCost > 0) %>% mutate(intro = "40% introduction")
 
@@ -1117,9 +1120,9 @@ fig_fc_3i_annotated
 fig_height = 3.5
 fig_width = 7
 
-ggsave("supp-fig_3-high_iF-LE_modification.svg", plot = fig_fc_3i_annotated,
+ggsave("figs/supp-fig_3-high_iF-LE_modification.svg", plot = fig_fc_3i_annotated,
        height = fig_height, width = fig_width)
-ggsave("supp-fig_3-high_iF-LE_modification.png", plot = fig_fc_3i_annotated,
+ggsave("figs/supp-fig_3-high_iF-LE_modification.png", plot = fig_fc_3i_annotated,
        height = fig_height, width = fig_width)
 
 print("Saved to supp-fig_3-high_iF-LE_modification")
@@ -1138,11 +1141,11 @@ fig_width = 8.25
 fig_height = knitr::opts_current$get("fig.height")
 fig_width = knitr::opts_current$get("fig.width")
 
-rd0_E <- read.csv("alleleSail_data/2-5/rd_0-clvg_0.5_last_gen_E.csv", 
+rd0_E <- read.csv("data/2-5/rd_0-clvg_0.5_last_gen_E.csv", 
                 header = FALSE,
                 col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
   mutate(rd = "linked")
-rd50_E <- read.csv("alleleSail_data/2-5/rd_50-clvg_0.5_last_gen_E.csv", 
+rd50_E <- read.csv("data/2-5/rd_50-clvg_0.5_last_gen_E.csv", 
                 header = FALSE,
                 col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
   mutate(rd = "unlinked")
@@ -1242,9 +1245,9 @@ comb_fig_annotated <- comb_fig +
            colour = plasma_pal[1001], linewidth = 0.8)
 comb_fig_annotated
 
-ggsave("fig_4_linkage-edit_costs.svg", plot = comb_fig_annotated,
+ggsave("figs/fig_4_linkage-edit_costs.svg", plot = comb_fig_annotated,
        height = fig_height, width = fig_width)
-ggsave("fig_4_linkage-edit_costs.png", plot = comb_fig_annotated,
+ggsave("figs/fig_4_linkage-edit_costs.png", plot = comb_fig_annotated,
        height = fig_height, width = fig_width)
 
 print("Saved to fig_4_linkage-edit_costs")
@@ -1260,11 +1263,11 @@ fig_height = knitr::opts_current$get("fig.height")
 fig_width = knitr::opts_current$get("fig.width")
 
 ### E's for amount E's ###
-rd0_E <- read.csv("alleleSail_data/2-5/svi_rd_0-clvg_0.5_last_gen_E.csv", 
+rd0_E <- read.csv("data/2-5/svi_rd_0-clvg_0.5_last_gen_E.csv", 
                 header = FALSE,
                 col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
   mutate(rd = "linked")
-rd50_E <- read.csv("alleleSail_data/2-5/svi_rd_50-clvg_0.5_last_gen_E.csv", 
+rd50_E <- read.csv("data/2-5/svi_rd_50-clvg_0.5_last_gen_E.csv", 
                 header = FALSE,
                 col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
   mutate(rd = "unlinked")
@@ -1363,9 +1366,9 @@ figure_annotated <- comb_fig +
            colour = plasma_pal[1001], linewidth = 0.8)
 figure_annotated
 
-ggsave("supp-fig_4_WvI_linkage.svg", plot = figure_annotated,
+ggsave("figs/supp-fig_4_WvI_linkage.svg", plot = figure_annotated,
        height = fig_height, width = fig_width)
-ggsave("supp-fig_4_WvI_linkage.png", plot = figure_annotated,
+ggsave("figs/supp-fig_4_WvI_linkage.png", plot = figure_annotated,
        height = fig_height, width = fig_width)
 
 print("Saved to supp-fig_4_WvI_linkage")
@@ -1378,7 +1381,7 @@ print("Saved to supp-fig_4_WvI_linkage")
 General, fsRIDL vs. XY / ZW panel:
 
 ```{r}
-total_pc2 <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1423,7 +1426,7 @@ edit_p1.2 <- no_legend_plot + annotation_custom(grob = leg2, xmin = 30, xmax = 5
 Data for other 5 panels:
 
 ```{r}
-total_pc2 <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1431,7 +1434,7 @@ total_pc2 <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(iF == 0.1) %>%
   mutate(type2 = "tpc")
 
-allele2 <- read.csv("alleleSail_data/3-5/full_five_noMC_NEWallele.csv") %>%
+allele2 <- read.csv("data/3-5/full_five_noMC_NEWallele.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1597,9 +1600,9 @@ fig_singles <- ggarrange(top_panel, null_plot, bottom_panel,
   
 fig_singles
 
-ggsave("fig_5-single_release-sex_systems.svg", plot = fig_singles, bg = "white",
+ggsave("figs/fig_5-single_release-sex_systems.svg", plot = fig_singles, bg = "white",
        height = fig_height, width = fig_width)
-ggsave("fig_5-single_release-sex_systems.png", plot = fig_singles, bg = "white",
+ggsave("figs/fig_5-single_release-sex_systems.png", plot = fig_singles, bg = "white",
        height = fig_height, width = fig_width)
 
 print("Saved to fig_5-single_release-sex_systems")
@@ -1612,14 +1615,14 @@ print("Saved to fig_5-single_release-sex_systems")
 fig_height <- knitr::opts_current$get("fig.height")
 fig_width <- knitr::opts_current$get("fig.width")
 
-stotal_pc2 <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
+stotal_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
   transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
   mutate(type2 = "tpc")
 
-sallele2 <- read.csv("alleleSail_data/3-5/full_five_noMC_NEWallele.csv") %>%
+sallele2 <- read.csv("data/3-5/full_five_noMC_NEWallele.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1712,12 +1715,12 @@ top_panel <- ggarrange(p1, p2, nrow = 2,
           labels = c("A", "B"))
 top_panel
 
-ggsave("supp_fig_5-male_v_female-allele_freq.svg", plot = top_panel,
+ggsave("figs/supp-fig_5-male_v_female-allele_freq.svg", plot = top_panel,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("supp_fig_5-male_v_female-allele_freq.png", plot = top_panel,
+ggsave("figs/supp-fig_5-male_v_female-allele_freq.png", plot = top_panel,
        height = fig_height, width = fig_width, bg = "white")
 
-print("Saved to supp_fig_5-male_v_female-allele_freq")
+print("Saved to supp-fig_5-male_v_female-allele_freq")
 ```
 
 
@@ -1726,7 +1729,7 @@ print("Saved to supp_fig_5-male_v_female-allele_freq")
 Get Multiple Releases Info
 
 ```{r}
-zw_gen_noMC_a <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_NEWallele.csv") %>%
+zw_gen_noMC_a <- read.csv("data/2-23/ais_51releases_noMC_NEWallele.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1737,7 +1740,7 @@ zw_gen_noMC_a <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_NEWallele.cs
   select(-efficiency, -rd) %>%
   filter(type == "ZW") %>% mutate(type = "ZW no MC")
 
-zw_gen_noMC_tp <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+zw_gen_noMC_tp <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1747,7 +1750,7 @@ zw_gen_noMC_tp <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_total_pop.c
   select(-efficiency, -rd) %>%
   filter(type == "ZW") %>% mutate(type = "ZW no MC")
 
-zwwind_gen_noMC_a <- read.csv("alleleSail_data/2-23/ais_ZW_ZWind_noMC_NEWallele.csv") %>%
+zwwind_gen_noMC_a <- read.csv("data/2-23/ais_ZW_ZWind_noMC_NEWallele.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1757,7 +1760,7 @@ zwwind_gen_noMC_a <- read.csv("alleleSail_data/2-23/ais_ZW_ZWind_noMC_NEWallele.
   mutate(type2 = "no MC") %>%
   select(-efficiency, -rd)
 
-zwwind_gen_noMC_tp <- read.csv("alleleSail_data/2-23/ais_ZW_ZWind_noMC_total_pop.csv") %>%
+zwwind_gen_noMC_tp <- read.csv("data/2-23/ais_ZW_ZWind_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1838,7 +1841,7 @@ plot_1.10 <- tpc_condensed %>% #filter(type == "ZWviableBump") %>%
 Get and Graph compared to Single Release
 
 ```{r, fig.height=6, fig.width=8}
-total_pc2_noMC <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
+total_pc2_noMC <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1846,7 +1849,7 @@ total_pc2_noMC <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %
   mutate(type2 = "no_MC") %>%
   select(-gap)
 
-ZW_noMC_singleRel <- read.csv("alleleSail_data/3-11/ZW_Zwind_singleRelease_noMC_total_pop.csv") %>%
+ZW_noMC_singleRel <- read.csv("data/3-11/ZW_Zwind_singleRelease_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -1881,8 +1884,8 @@ Z_link_comb <- ggarrange(plot2, plot_1.10, nrow = 2,
           labels = c("A", "B"))
 Z_link_comb
 
-ggsave("supp-fig_6-Zlinked_editor.svg", Z_link_comb)
-ggsave("supp-fig_6-Zlinked_editor.png", Z_link_comb)
+ggsave("figs/supp-fig_6-Zlinked_editor.svg", Z_link_comb)
+ggsave("figs/supp-fig_6-Zlinked_editor.png", Z_link_comb)
 
 print("Saved to supp-fig_6-Zlinked_editor")
 ```
@@ -1895,6 +1898,67 @@ print("Saved to supp-fig_6-Zlinked_editor")
 Plotting endpoints
 
 ```{r, eval = FALSE}
+XY_allele <- read.csv("data/1-19/sex_equilibriums_XY_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Allele_Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  select(-Count)
+
+XY_total <- read.csv("data/1-19/sex_equilibriums_XY_total.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  pivot_wider(names_from = Sex, values_from = Count) %>%
+  mutate(totalPop = Female + Male,
+         male_percent = Male / totalPop)
+
+XY_info <- XY_allele %>%
+  filter(Generation > 0) %>%
+  group_by(Generation, Allele, iF, Run) %>% # desex
+  summarise(Allele_Count = sum(Allele_Count)) %>%
+  merge(XY_total) %>%
+  pivot_wider(names_from = Allele, values_from = Allele_Count) %>%
+  mutate(Old_Sex = Y / (totalPop * 2),
+         New_Sex = E / (totalPop * 2))
+
+ZW_allele <- read.csv("data/1-19/sex_equilibriums_ZW_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Allele_Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  select(-Count)
+
+ZW_total <- read.csv("data/1-19/sex_equilibriums_ZW_total.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  pivot_wider(names_from = Sex, values_from = Count) %>%
+  mutate(totalPop = Female + Male,
+         male_percent = Male / totalPop)
+
+ZW_info <- ZW_allele %>%
+  filter(Generation > 0) %>%
+  group_by(Generation, Allele, iF, Run) %>% # desex
+  summarise(Allele_Count = sum(Allele_Count)) %>%
+  merge(ZW_total) %>%
+  pivot_wider(names_from = Allele, values_from = Allele_Count) %>%
+  mutate(Old_Sex =  Z / (totalPop * 2),
+         New_Sex = E / (totalPop * 2))
+
+ZW_small <- ZW_info %>%
+  select(Generation, iF, Run, male_percent, Old_Sex, New_Sex) %>%
+  mutate(System = "ZW")
+XY_small <- XY_info %>%
+  select(Generation, iF, Run, male_percent, Old_Sex, New_Sex) %>%
+  mutate(System = "XY")
+
 endpoint_fig2 <- rbind(ZW_small, XY_small) %>%
   filter(Generation == 500) %>%
   ggplot(aes(x = Old_Sex, y = New_Sex,
@@ -1909,7 +1973,7 @@ endpoint_fig2 <- rbind(ZW_small, XY_small) %>%
   #scale_color_manual(values = c("#e32f6c", "#61D3E6", "#6d2ac7", "#440154")) +
   labs(x = "Frequency of Old Sex Chromosome (Y or Z)",
        y = "Frequency of New Sex Chromosome (Sail)",
-       title = "Path of Neutral Equilibrium",
+       title = "Path of Sex Chromosome Turnover",
        shape = "Starting System",
        fill = "Percent Males") +
   theme_light() +
@@ -1922,22 +1986,22 @@ arrow_size = 0.8
 sdf_annotated <- endpoint_fig2 +
   annotate("text", size = text_size, hjust = 0,
            x = 0.22, y = 0.58, 
-           label = ": WW Sail / Sail\n: WW Sail / No Sail") +
+           label = ": WW Edit / Edit\n: WW Edit / No Edit") +
   annotate("text", size = text_size, hjust = 0,
            x = 0.2, y = 0.58, label = "♂\n♀") +
   annotate("text", size = text_size, hjust = 0,
            x = 0, y = 0.44, 
-           label = ": XX Sail / Sail\n: XX Sail / No Sail") +
+           label = ": XX Edit / Edit\n: XX Edit / No Edit") +
   annotate("text", size = text_size, hjust = 0,
            x = -0.02, y = 0.44, label = "♂\n♀") +
   annotate("text", size = text_size, hjust = 0,
            x = 0.3, y = 0.1, 
-           label = ": XY No Sail / No Sail\n: XX No Sail / No Sail") +
+           label = ": XY No Edit / No Edit\n: XX No Edit / No Edit") +
   annotate("text", size = text_size, hjust = 0,
            x = 0.28, y = 0.1, label = "♂\n♀") +
   annotate("text", size = text_size, hjust = 0,
            x = 0.51, y = 0.2, 
-           label = ": ZZ No Sail / No Sail\n: ZW No Sail / No Sail") +
+           label = ": ZZ No Edit / No Edit\n: ZW No Edit / No Edit") +
   annotate("text", size = text_size, hjust = 0,
            x = 0.49, y = 0.2, label = "♂\n♀") +
   annotate("segment", x = 0.19, y = 0.61, xend = 0.08, yend = 0.71,
@@ -1956,11 +2020,11 @@ sdf_annotated <- endpoint_fig2 +
 sdf_annotated
 
 fig_height= 4
-fig_width = 6
+fig_width = 7
 
-ggsave("fig_6-endpoint_equilibrium.svg", plot = sdf_annotated,
+ggsave("figs/fig_6-endpoint_equilibrium.svg", plot = sdf_annotated,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("fig_6-endpoint_equilibrium.png", plot = sdf_annotated,
+ggsave("figs/fig_6-endpoint_equilibrium.png", plot = sdf_annotated,
        height = fig_height, width = fig_width, bg = "white")
 
 print("Saved to fig_6-endpoint_equilibrium")
@@ -1977,7 +2041,7 @@ fig_width <- knitr::opts_current$get("fig.width")
 #fig_height = 3
 #fig_width = 6.5
 
-total_pc2 <- read.csv("alleleSail_data/3-5/full_five_noMC_total_pop.csv") %>%
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -2010,9 +2074,9 @@ sup_fig_7 <- ggarrange(supA, supB, ncol = 2,
           labels = c("A", "B"),
           common.legend = TRUE, legend = "right")
 
-ggsave("supp-fig_7-male_v_female-total_pop.svg", plot = sup_fig_7,
+ggsave("figs/supp-fig_7-male_v_female-total_pop.svg", plot = sup_fig_7,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("supp_fig_7-male_v_female-total_pop.png", plot = sup_fig_7,
+ggsave("figs/supp-fig_7-male_v_female-total_pop.png", plot = sup_fig_7,
        height = fig_height, width = fig_width, bg = "white")
 
 sup_fig_7
@@ -2026,7 +2090,7 @@ print("Saved to supp-fig_7-male_v_female-total_pop")
 Infinite Releases, and combine
 
 ```{r}
-total_pc3 <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+total_pc3 <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -2103,9 +2167,9 @@ fig7 <- ggarrange(top, p1 + theme(legend.position = "none",
                                   plot.title = element_text(size=title_text_size)),
           nrow = 2, heights = c(0.8, 1))
 
-ggsave("fig_7-continuous_release-sex_systems.svg", plot = fig7,
+ggsave("figs/fig_7-continuous_release-sex_systems.svg", plot = fig7,
        height = 6, width = 6, bg = "white")
-ggsave("fig_7-continuous_release-sex_systems.png", plot = fig7,
+ggsave("figs/fig_7-continuous_release-sex_systems.png", plot = fig7,
        height = 6, width = 6, bg = "white")
 
 fig7
@@ -2117,7 +2181,7 @@ print("Saved to fig_7-continuous_release-sex_systems")
 ### Supplemental Figure 8 - lower efficiency, XY and ZW vs. fsRIDL
 
 ```{r, fig.width=8, fig.height=7}
-total_PC_he <- read.csv("alleleSail_data/2-23/51releases_highEfficiencies_2_total_pop.csv") %>%
+total_PC_he <- read.csv("data/2-23/51releases_highEfficiencies_2_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -2166,9 +2230,9 @@ he_suppression_annotated <-
 
 he_suppression_annotated
 
-ggsave("supp-fig_8-moderate_efficiencies-suppression.svg", plot = he_suppression_annotated,
+ggsave("figs/supp-fig_8-moderate_efficiencies-suppression.svg", plot = he_suppression_annotated,
        height = 7, width = 8)
-ggsave("supp-fig_8-moderate_efficiencies-suppression.png", plot = he_suppression_annotated,
+ggsave("figs/supp-fig_8-moderate_efficiencies-suppression.png", plot = he_suppression_annotated,
        height = 7, width = 8)
 
 print("saved to supp-fig_8-moderate_efficiencies-suppression")
@@ -2182,7 +2246,7 @@ print("saved to supp-fig_8-moderate_efficiencies-suppression")
 fig_height <- knitr::opts_current$get("fig.height")
 fig_width <- knitr::opts_current$get("fig.width")
 
-total_pc3 <- read.csv("alleleSail_data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+total_pc3 <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
   filter(Generation != "Generation") %>%
   select(-X) %>%
   separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
@@ -2222,9 +2286,9 @@ p2 <- total_pc3 %>%
 
 p2
 
-ggsave("supp-fig_9-collapse_gens-2.svg", plot = p2,
+ggsave("figs/supp-fig_9-collapse_gens-2.svg", plot = p2,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("supp-fig_9-collapse_gens-2.png", plot = p2,
+ggsave("figs/supp-fig_9-collapse_gens-2.png", plot = p2,
        height = fig_height, width = fig_width, bg = "white")
 
 print("Saved to supp-fig_9-collapse_gens-2.svg")

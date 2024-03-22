@@ -1,3 +1,5 @@
+### written by Michelle Johnson and Tobin Ivy
+
 ### Import packages ###
 import numpy as np
 import pandas as pd
@@ -510,7 +512,7 @@ def stochastic_sim(alleles, mods, sex_det,
     if n_r_d > 0:
         for r_ind, rec in enumerate(r_d):
             r_d_temp = []
-            # TODO: why does it look like a list what is this - ANS: a for loop but faster ?
+            # a list comprehension for time-saving reasons
             [r_d_temp.append([0.5 + 0.5*(1-r/50), 0.5*(r/50)]) for r in rec]
             r_d_full.append(r_d_temp)
 
