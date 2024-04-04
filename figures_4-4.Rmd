@@ -1,4 +1,13 @@
 ---
+title: "Figures 4-4"
+author: "Michelle Johnson"
+date: "2024-04-04"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+---
 title: "figures_3-17"
 author: "Michelle Johnson"
 date: "2024-03-18"
@@ -638,9 +647,176 @@ ggsave("figs/supp-fig_1-DAR_hm.png", comb_fig_annotated, bg = "white",
 print("Saved to supp-fig_1-DAR_hm")
 ```
 
+### Supplemental Figure 2 - Dominant / Additive / Recessive vs. Germline / Somatic
 
 
-### Supplemental Figure 2 - Neutral Edit, non-neutral Editor
+Build a framework that lets you graph homozygotes carrying/not carrying, heterozygotes carrying/not carrying, total allele frequency
+
+"allele frequency (of edit and editor), homozygotes with/without edit, homozygotes total, and heterozygotes"
+
+start with some very beefy functions !!
+```{r}
+clean_desex <- function(dataset) {
+  dataset <- dataset %>%
+    filter(Generation != "Generation") %>%
+    select(-X) %>%
+    separate(Run, c(NA, "iF", NA, "Ecost", "fit_type", "Run"), sep = "_") %>%
+    transform(Generation = as.numeric(Generation), Count = as.numeric(Count), 
+              iF = as.numeric(iF), Ecost = as.numeric(Ecost)) %>%
+    filter(iF != 0)
+  
+  columns <- colnames(dataset)
+  columns <- columns[! columns %in% c('Sex', 'Count')]
+  dataset %>% group_by(across(all_of(columns))) %>% summarise(Count = sum(Count))
+}
+
+get_a_h_data <- function(allele_data, genotype_data, total_data) {
+  all_freq <- allele_data %>%
+    transform(Allele_Count = Count) %>% select(-Count) %>%
+    merge(., total_data) %>%
+    mutate(allele_freq = Allele_Count / (2 * Count)) %>%
+    filter(Allele %in% c("E", "S")) %>% 
+    group_by(Generation, Allele, iF, Ecost, fit_type) %>%
+    summarize(allele_freq = mean(allele_freq)) %>%
+    mutate(Allele = ifelse(Allele == "E", "Edit", "Editor"),
+           Ecost = ifelse(fit_type == "additive", Ecost * 2, Ecost)) %>%
+    pivot_wider(names_from = Allele, values_from = allele_freq) %>%
+    select(Generation, iF, Ecost, fit_type, Edit, Editor)
+
+  phenotypes = c("wildtype", "heterozygote", "homozygote")
+
+  h_freq <- genotype_data %>%
+    mutate(phenotype = phenotypes[str_count(Genotype, "E") + 1],
+           carrier = ifelse(grepl("S", Genotype), "Carrier", "Not a Carrier")) %>%
+    group_by(Generation, iF, Ecost, fit_type, phenotype, carrier, Run) %>%
+    summarize(Gen_count = sum(Count)) %>%
+    merge(., total_data) %>%
+    mutate(gen_freq = Gen_count / Count,
+           Ecost = ifelse(fit_type == "additive", Ecost * 2, Ecost)) %>% select(-Gen_count) %>%
+    group_by(Generation, iF, Ecost, fit_type, phenotype, carrier) %>%
+    summarize(gen_freq = mean(gen_freq)) %>%
+    pivot_wider(names_from = carrier, values_from = gen_freq) %>%
+    mutate(total = Carrier + `Not a Carrier`) %>%
+    pivot_longer(cols = c(Carrier, `Not a Carrier`, total), names_to = "phenotype2", values_to = "Frequency") %>%
+    mutate(phenotype = paste(phenotype, phenotype2)) %>% select(-phenotype2) %>%
+    pivot_wider(names_from = phenotype, values_from = Frequency)
+
+  comb_freq <- merge(all_freq, h_freq) %>% 
+    select(-`wildtype Carrier`, -`wildtype Not a Carrier`, -`wildtype total`) %>%
+    pivot_longer(names_to = "type", values_to = "Frequency", 
+                 cols = c(-Generation, -iF, -Ecost, -fit_type))
+  
+  comb_freq
+}
+```
+
+get data using functions
+```{r}
+gmc_all <- read.csv("data/3-28/DAR_germlineMC_NEWallele.csv") %>% clean_desex()
+gmc_gen <- read.csv("data/3-28/DAR_germlineMC_genotype.csv") %>% clean_desex()
+gmc_tot <- read.csv("data/3-28/DAR_germlineMC_total.csv") %>% clean_desex()
+
+germline_mc <- get_a_h_data(gmc_all, gmc_gen, gmc_tot) %>%
+  mutate(modification = "Germline", mc = "MC")
+
+gn_all <- read.csv("data/3-28/DAR_germline_NEWallele.csv") %>% clean_desex()
+gn_gen <- read.csv("data/3-28/DAR_germline_genotype.csv") %>% clean_desex()
+gn_tot <- read.csv("data/3-28/DAR_germline_total.csv") %>% clean_desex()
+
+germline_no_mc <- get_a_h_data(gn_all, gn_gen, gn_tot) %>%
+  mutate(modification = "Germline", mc = "no MC")
+
+smc_all <- read.csv("data/3-28/DAR_somaticMC_NEWallele.csv") %>% clean_desex()
+smc_gen <- read.csv("data/3-28/DAR_somaticMC_genotype.csv") %>% clean_desex()
+smc_tot <- read.csv("data/3-28/DAR_somaticMC_total.csv") %>% clean_desex()
+
+somatic_mc <- get_a_h_data(smc_all, smc_gen, smc_tot) %>%
+  mutate(modification = "Germline and Somatic", mc = "MC")
+
+sn_all <- read.csv("data/3-28/DAR_somatic_NEWallele.csv") %>% clean_desex()
+sn_gen <- read.csv("data/3-28/DAR_somatic_genotype.csv") %>% clean_desex()
+sn_tot <- read.csv("data/3-28/DAR_somatic_total.csv") %>% clean_desex()
+
+somatic_no_mc <- get_a_h_data(sn_all, sn_gen, sn_tot) %>%
+  mutate(modification = "Germline and Somatic", mc = "no MC")
+```
+
+save to figures
+```{r, fig.height = 4.5, fig.width = 8}
+
+facet_text_size <- 11
+
+type_Dar_fig_noeditor <- rbind(
+  filter(somatic_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(somatic_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type))
+) %>%
+  filter(type != "Editor") %>%
+  mutate(fit_type = factor(paste(toupper(substr(fit_type, 1, 1)), substr(fit_type, 2, nchar(fit_type)), sep=""),
+                           levels = c("Dominant", "Additive", "Recessive"))) %>%
+  mutate(type = ifelse(grepl("Edi", type), type,
+                       ifelse(grepl("homo", type), "Homozygotes", "Heterozygotes")),
+         mc = ifelse(mc == "MC", "Maternal Carryover", "No Maternal Carryover")) %>%
+  ggplot(aes(x = Generation, y = Frequency, color = modification, linetype = mc)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(fit_type ~ type) +
+  theme_light() +
+  ylim(0, 1) +
+  scale_color_manual(values = c("#e32f6c", "#61D3E6")) +
+  labs(title = "",
+       color = "Modification",
+       linetype = "",
+       x = " ") +
+  theme(strip.text.x = element_text(size=facet_text_size, color = "black", hjust = 0), #, face = "bold"),
+        strip.text.y = element_text(size=facet_text_size, color = "black", hjust = 0),
+          strip.background = element_blank(),
+        axis.title.y = element_blank()) #,
+        #axis.title.x = element_blank())
+
+type_Dar_fig_onlyeditor <- rbind(
+  filter(somatic_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(somatic_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type))
+) %>%
+  filter(type == "Editor") %>%
+  mutate(fit_type = factor(fit_type,
+                           levels = c("dominant", "additive", "recessive")),
+         mc = ifelse(mc == "MC", "Maternal Carryover", "No Maternal Carryover")) %>%
+  ggplot(aes(x = Generation, y = Frequency, color = modification, linetype = mc)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(fit_type ~ type) +
+  theme_light() +
+  ylim(0, 0.1) +
+  scale_color_manual(values = c("#e32f6c", "#61D3E6")) +
+  labs(title = "Fitness Cost",
+       linetype = "",
+       color = "Modification",
+       x = "") +
+  theme(strip.text.x = element_text(size=facet_text_size, color = "black", hjust = 0), #, face = "bold"),
+        strip.text.y = element_blank(),
+          strip.background = element_blank()) #,
+        #axis.title.x = element_blank())
+
+type_DAR_scaled <- ggarrange(type_Dar_fig_onlyeditor, type_Dar_fig_noeditor, ncol = 2,
+          common.legend = TRUE, legend = "right",
+          widths = c(1, 2.35)) +
+  annotate("text", size = 4, hjust = 0, x = 0.35, y = 0.03, label = "Generation")
+
+fig_height = 4.5
+fig_width = 8
+
+ggsave("figs/supp-fig_2-DAR_germline_somatic.svg", plot = type_DAR_scaled,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs/supp-fig_2-DAR_germline_somatic.png", plot = type_DAR_scaled,
+       height = fig_height, width = fig_width, bg = "white")
+type_DAR_scaled
+
+print("Saved to supp-fig_2-DAR_germline_somatic")
+```
+
+### Supplemental Figure 3 - Neutral Edit, non-neutral Editor
 
 Figure 2, but for SvI (costs on Wind)
 ```{r}
@@ -681,7 +857,7 @@ SvI_figure2 <- gmcSail_data %>%
   scale_linetype_manual(values = c(1, 4)) +
   scale_colour_manual(values = c("#61D3E6", "#e32f6c")) + #"#6d2ac7", 
   labs(title = "10% Introduction Frequency",
-       linetype = "Presence of Editor") +
+       linetype = "Allele") +
   guides(color = guide_legend(order = 1, title =), linetype = guide_legend(order = 2))
 
 SvI_figure2_spaced <- ggarrange(SvI_figure2 + theme(legend.position = "none"),
@@ -801,14 +977,13 @@ comb_fig_annotated <- comb_fig +
 
 comb_fig_annotated
 
-ggsave("figs/supp-fig_2-Modification_Neutral-Edit.svg", plot = comb_fig_annotated,
+ggsave("figs/supp-fig_3-Modification_Neutral-Edit.svg", plot = comb_fig_annotated,
        height = 6.7, width = 8)
-ggsave("figs/supp-fig_2-Modification_Neutral-Edit.png", plot = comb_fig_annotated,
+ggsave("figs/supp-fig_3-Modification_Neutral-Edit.png", plot = comb_fig_annotated,
        height = 6.7, width = 8)
 
-print("Saved to supp-fig_2-Modification_Neutral-Edit")
+print("Saved to supp-fig_3-Modification_Neutral-Edit")
 ```
-
 
 ### Figure 3 - Decreased Efficiency and Modification
 
@@ -933,7 +1108,7 @@ print("Saved to fig_3-decreased_efficiency-modification")
 ```
 
 
-### Supplemental Figure 3 - Decreased Efficiency, Increased Introduction Frequency, and Modification
+### Supplemental Figure 4 - Decreased Efficiency, Increased Introduction Frequency, and Modification
 
 compare sail vs. no sail data - 20% intro
 ```{r}
@@ -1120,13 +1295,15 @@ fig_fc_3i_annotated
 fig_height = 3.5
 fig_width = 7
 
-ggsave("figs/supp-fig_3-high_iF-LE_modification.svg", plot = fig_fc_3i_annotated,
+ggsave("figs/supp-fig_4-high_iF-LE_modification.svg", plot = fig_fc_3i_annotated,
        height = fig_height, width = fig_width)
-ggsave("figs/supp-fig_3-high_iF-LE_modification.png", plot = fig_fc_3i_annotated,
+ggsave("figs/supp-fig_4-high_iF-LE_modification.png", plot = fig_fc_3i_annotated,
        height = fig_height, width = fig_width)
 
-print("Saved to supp-fig_3-high_iF-LE_modification")
+print("Saved to supp-fig_4-high_iF-LE_modification")
 ```
+
+
 
 
 ### Figure 4 - Linkage, costs on edit
@@ -1254,7 +1431,8 @@ print("Saved to fig_4_linkage-edit_costs")
 ```
 
 
-### Supplemental Figure 4 - Linkage, costs on editor
+
+### Supplemental Figure 5 - Linkage, costs on editor
 
 Get linked vs. Unlinked data, with fitness costs on S (the Wind), Generation 50
 
@@ -1366,13 +1544,14 @@ figure_annotated <- comb_fig +
            colour = plasma_pal[1001], linewidth = 0.8)
 figure_annotated
 
-ggsave("figs/supp-fig_4_WvI_linkage.svg", plot = figure_annotated,
+ggsave("figs/supp-fig_5_WvI_linkage.svg", plot = figure_annotated,
        height = fig_height, width = fig_width)
-ggsave("figs/supp-fig_4_WvI_linkage.png", plot = figure_annotated,
+ggsave("figs/supp-fig_5_WvI_linkage.png", plot = figure_annotated,
        height = fig_height, width = fig_width)
 
-print("Saved to supp-fig_4_WvI_linkage")
+print("Saved to supp-fig_5_WvI_linkage")
 ```
+
 
 
 
@@ -1609,7 +1788,7 @@ print("Saved to fig_5-single_release-sex_systems")
 ```
 
 
-### Supplemental Figure 5 - Editor segregates to Males
+### Supplemental Figure 6 - Editor segregates to Males
 
 ```{r, fig.height=4.7, fig.width=6.5}
 fig_height <- knitr::opts_current$get("fig.height")
@@ -1715,16 +1894,17 @@ top_panel <- ggarrange(p1, p2, nrow = 2,
           labels = c("A", "B"))
 top_panel
 
-ggsave("figs/supp-fig_5-male_v_female-allele_freq.svg", plot = top_panel,
+ggsave("figs/supp-fig_6-male_v_female-allele_freq.svg", plot = top_panel,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("figs/supp-fig_5-male_v_female-allele_freq.png", plot = top_panel,
+ggsave("figs/supp-fig_6-male_v_female-allele_freq.png", plot = top_panel,
        height = fig_height, width = fig_width, bg = "white")
 
-print("Saved to supp-fig_5-male_v_female-allele_freq")
+print("Saved to supp-fig_6-male_v_female-allele_freq")
 ```
 
 
-### Supplemental Figure 6 - Z-linked Editor
+
+### Supplemental Figure 7 - Z-linked Editor
 
 Get Multiple Releases Info
 
@@ -1884,11 +2064,12 @@ Z_link_comb <- ggarrange(plot2, plot_1.10, nrow = 2,
           labels = c("A", "B"))
 Z_link_comb
 
-ggsave("figs/supp-fig_6-Zlinked_editor.svg", Z_link_comb)
-ggsave("figs/supp-fig_6-Zlinked_editor.png", Z_link_comb)
+ggsave("figs/supp-fig_7-Zlinked_editor.svg", Z_link_comb)
+ggsave("figs/supp-fig_7-Zlinked_editor.png", Z_link_comb)
 
-print("Saved to supp-fig_6-Zlinked_editor")
+print("Saved to supp-fig_7-Zlinked_editor")
 ```
+
 
 
 ### Figure 6 - neutral equilibrium path
@@ -2041,17 +2222,16 @@ ggsave("figs/fig_6-endpoint_UNANNOTATED.svg", plot = endpoint_fig2,
 ggsave("figs/fig_6-endpoint_UNANNOTATED.png", plot = endpoint_fig2,
        height = fig_height, width = fig_width, bg = "white")
 
-ggsave("figs/fig_6-endpoint_equilibrium.svg", plot = sdf_annotated,
-       height = fig_height, width = fig_width, bg = "white")
-ggsave("figs/fig_6-endpoint_equilibrium.png", plot = sdf_annotated,
-       height = fig_height, width = fig_width, bg = "white")
+#ggsave("figs/fig_6-endpoint_equilibrium.svg", plot = sdf_annotated,
+#       height = fig_height, width = fig_width, bg = "white")
+#ggsave("figs/fig_6-endpoint_equilibrium.png", plot = sdf_annotated,
+#       height = fig_height, width = fig_width, bg = "white")
 
 print("Saved to fig_6-endpoint_equilibrium")
 
 ```
 
-
-### Supplemental Figure 7 - Number of Males vs. Females
+### Supplemental Figure 8 - Number of Males vs. Females
 
 ```{r, fig.height=3, fig.width=6.5}
 fig_height <- knitr::opts_current$get("fig.height")
@@ -2089,19 +2269,22 @@ supB <- total_pc2 %>% filter(repeats == 1, iF == 0.2, Generation < 6) %>%
   labs(title = "XY males released") +
   theme_light()
 
-sup_fig_7 <- ggarrange(supA, supB, ncol = 2,
+sup_fig_8 <- ggarrange(supA, supB, ncol = 2,
           labels = c("A", "B"),
           common.legend = TRUE, legend = "right")
 
-ggsave("figs/supp-fig_7-male_v_female-total_pop.svg", plot = sup_fig_7,
+ggsave("figs/supp-fig_8-male_v_female-total_pop.svg", plot = sup_fig_8,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("figs/supp-fig_7-male_v_female-total_pop.png", plot = sup_fig_7,
+ggsave("figs/supp-fig_8-male_v_female-total_pop.png", plot = sup_fig_8,
        height = fig_height, width = fig_width, bg = "white")
 
-sup_fig_7
+sup_fig_8
 
-print("Saved to supp-fig_7-male_v_female-total_pop")
+print("Saved to supp-fig_8-male_v_female-total_pop")
 ```
+
+
+
 
 
 ### Figure 7 - Suppression with multiple releases
@@ -2197,7 +2380,8 @@ print("Saved to fig_7-continuous_release-sex_systems")
 ```
 
 
-### Supplemental Figure 8 - lower efficiency, XY and ZW vs. fsRIDL
+
+### Supplemental Figure 9 - lower efficiency, XY and ZW vs. fsRIDL
 
 ```{r, fig.width=8, fig.height=7}
 total_PC_he <- read.csv("data/2-23/51releases_highEfficiencies_2_total_pop.csv") %>%
@@ -2249,13 +2433,14 @@ he_suppression_annotated <-
 
 he_suppression_annotated
 
-ggsave("figs/supp-fig_8-moderate_efficiencies-suppression.svg", plot = he_suppression_annotated,
+ggsave("figs/supp-fig_9-moderate_efficiencies-suppression.svg", plot = he_suppression_annotated,
        height = 7, width = 8)
-ggsave("figs/supp-fig_8-moderate_efficiencies-suppression.png", plot = he_suppression_annotated,
+ggsave("figs/supp-fig_9-moderate_efficiencies-suppression.png", plot = he_suppression_annotated,
        height = 7, width = 8)
 
-print("saved to supp-fig_8-moderate_efficiencies-suppression")
+print("saved to supp-fig_9-moderate_efficiencies-suppression")
 ```
+
 
 
 
@@ -2305,12 +2490,12 @@ p2 <- total_pc3 %>%
 
 p2
 
-ggsave("figs/supp-fig_9-collapse_gens-2.svg", plot = p2,
+ggsave("figs/supp-fig_10-collapse_gens-2.svg", plot = p2,
        height = fig_height, width = fig_width, bg = "white")
-ggsave("figs/supp-fig_9-collapse_gens-2.png", plot = p2,
+ggsave("figs/supp-fig_10-collapse_gens-2.png", plot = p2,
        height = fig_height, width = fig_width, bg = "white")
 
-print("Saved to supp-fig_9-collapse_gens-2.svg")
+print("Saved to supp-fig_10-collapse_gens-2.svg")
 ```
 
 
