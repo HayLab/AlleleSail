@@ -1,5 +1,7 @@
-/figures_3-17.pdf
 /my_env*
 *.png
 *.svg
 *.csv
+*.pdf
+*3-17*
+*3_17*
