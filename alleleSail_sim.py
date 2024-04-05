@@ -7,9 +7,8 @@ import random
 import argparse
 import copy
 import time
-import os
 
-### Step 1: Basic Input ###
+### Global Default Variables ###
 ALLELES = [['E', 'O'], ['S', 'W']]
 MODS = [['germline', ['S'], 'O', ['E']]]
 SEX_DET = ['autosomal', [], []]
@@ -30,8 +29,7 @@ NUM_RUNS = 10
 RUN = "TEST"
 FILE_NAME = "alleleSail_data/EOSW_stochastic_TEST"
 
-
-### Step 2: Define Functions ###
+### Functions for Running ###
 
 def product(*args):
     """modified code from Python Software Foundations description of itertools' product function,
@@ -57,34 +55,18 @@ def product_index(*args):
     for prod in result:
         yield prod
 
-
 def cross(mother, father):
     """cross generates the genotypes for each offspring from the cross between mother and father"""
-    
-    # o_d = offspring_diploidloci, lists of all combinations of alleles for each loci
-    # o_g = offspring_genotypes, all possible offspring genotypes generated from o_d
-    # o_d_i = offspring_diploidloci_indices, tracks allele lineage for each locus
-    # o_g_i = offspring_genotypes_indices, tracks allele lineage for each genotype
-        
-    # o_d = [list(product(m_a, f_a)) for f_a, m_a in zip(father, mother)]
-
-    # o_g = list(product(*o_d))
-
-    # o_d_i = [list(product_index(m_a, f_a)) for f_a, m_a in zip(father, mother)]
-
-    # o_g_i = list(product(*o_d_i))
-    
+    # create offspring_diploidloci
     o_d = [list(product(m_a, f_a)) for m_a, f_a in zip(mother, father)]
-
+    # create offspring_genotypes for all possible offspring_diploidloci offspring
     o_g = list(product(*o_d))
-
+    # keep track of diploid offspring indices to track allele lineage for each locus
     o_d_i = [list(product_index(m_a, f_a)) for m_a, f_a in zip(mother, father)]
-
+    # keep track of diploid genotype indices to track allele lineage for each genotype
     o_g_i = list(product(*o_d_i))
     
-    
     return(o_g, o_g_i)
-
 
 def allele_list(genotype, list_type):
     """allele_list generates a single list of alleles from the input genotype"""
@@ -117,7 +99,6 @@ def allele_list(genotype, list_type):
 
         return(mo_h, fa_h)
 
-
 def all_option(subset, overset, replacement = 0):
     """Determines whether all elements of the subset are in the overset, either with (replacement = 1) or
     without replacement (= 0)"""
@@ -147,15 +128,17 @@ def all_option(subset, overset, replacement = 0):
         return(check)
 
 def fitness_cost(f_c, geno_alleles):
-    """fitness_cost takes into account two distinct sources of fitness affects and combines them:
-    - fitness affects from single copies of alleles that can be dominant or additive
-    - fitness affects from 'genotype' affects (wherein a heterozygote might be neutral but a homozygote
+    """fitness_cost takes into account two distinct sources of fitness effects and combines them:
+    - fitness effects from single copies of alleles that can be dominant or additive
+    - fitness effects from 'genotype' affects (wherein a heterozygote might be neutral but a homozygote
     for a given allele is a lethal condition)
     
     f_c = [[sex, [allele(s)], cost, rescue, cost type], ]"""
     
+    # generate empty fitness list
     fitness = [np.zeros(len(geno_alleles[0])), np.zeros(len(geno_alleles[1]))]
     
+    # associate definted fitness costs with genotypes
     for cost in f_c:
         if cost[0] == 2:
             for sex in [0,1]:
@@ -183,7 +166,8 @@ def fitness_cost(f_c, geno_alleles):
 
                 elif all_option(cost[1], genotype, 0) and not any([all_option(rescue, genotype) for rescue in cost[3]]):
                     fitness[cost[0]][g_i] += cost[2]
-                        
+
+    # convert fitness costs to relative fitness           
     for sex in [0,1]:
         for g_i, genotype in enumerate(geno_alleles[sex]):
             if fitness[sex][g_i] >= 1:
@@ -199,9 +183,9 @@ def sterility_cost(s_c, geno_alleles):
     for a given allele is a lethal condition)
     
     s_c = [[sex, [allele(s)], cost, rescue, cost type], ]"""
-    
+    # generate empty "fecundity" list
     fecundity = [np.zeros(len(geno_alleles[0])), np.zeros(len(geno_alleles[1]))]
-    
+    # associate definted sterility costs with genotypes
     for cost in s_c:
         if cost[0] == 2:
             for sex in [0,1]:
@@ -231,7 +215,8 @@ def sterility_cost(s_c, geno_alleles):
                         add_sc += 'later'
                 elif all_option(cost[1], genotype, 0) and not any([all_option(rescue, genotype) for rescue in cost[3]]):
                     fecundity[cost[0]][g_i] += cost[2]
-                        
+
+    # convert sterility costs to actual fecundity/fertility          
     for sex in [0,1]:
         for g_i, genotype in enumerate(geno_alleles[sex]):
             if fecundity[sex][g_i] >= 1:
@@ -241,15 +226,21 @@ def sterility_cost(s_c, geno_alleles):
     return(fecundity)
 
 def drive_modification_stochastic(mod_sprin, d_b, parent_alleles, mod, mod_i, mod_dict):
+    """given a set of modifications, an offspring, and the offspring's parents' alleles,
+    return a individuals and their probability of being created"""
     
+    # generate list of modified offspring - start with single offspring
     mod_sprin_list = [mod_sprin]
     
-    for m_s_ind, mod_sprin in enumerate(mod_sprin_list): #swapped order of for loops from det model, does it matter?
+    # go through each possible offspring
+    for m_s_ind, mod_sprin in enumerate(mod_sprin_list):
         for sex in [0, 1]:
+            # attempt to modify if modification has not already occurred
             if mod_sprin[2][mod_dict[(mod[0], mod[2], sex)]] == 0:
                 mod_sprin_a_l = allele_list(mod_sprin[0], 'genotype')
                 if mod[2] in mod_sprin_a_l:
                     mod_a_ind = mod_sprin_a_l.index(mod[2])
+                    # check for germline modification
                     if ((mod_a_ind%2 == sex or 
                         (mod_a_ind%2 == sex-1 and mod_sprin_a_l[mod_a_ind+1] == mod[2])) and 
                         mod[0] == 'germline'):
@@ -262,7 +253,7 @@ def drive_modification_stochastic(mod_sprin, d_b, parent_alleles, mod, mod_i, mo
                                 temp_sprin[0][int(mod_a_ind/2)][sex] = sub_mod
                                 temp_sprin[1][mod_dict[(mod[0], mod[2], sex)]+1] = d_b[mod_i][sex][sub_mod_i]
                                 mod_sprin_list.append(temp_sprin)
-                                
+                    # if not germline, attempt zygotic
                     elif ((mod_a_ind%2 == sex or 
                           (mod_a_ind%2 == sex-1 and mod_sprin_a_l[mod_a_ind+1] == mod[2])) and 
                           mod[0] == 'zygotic'):
@@ -277,7 +268,7 @@ def drive_modification_stochastic(mod_sprin, d_b, parent_alleles, mod, mod_i, mo
                                 temp_sprin[0][int(mod_a_ind/2)][sex] = sub_mod
                                 temp_sprin[1][mod_dict[(mod[0], mod[2], sex)]+1] = d_b[mod_i][sub_mod_i]
                                 mod_sprin_list.append(temp_sprin)
-                        
+                    # if not germline or zygotic, attempt somatic
                     elif ((mod_a_ind%2 == sex or 
                           (mod_a_ind%2 == sex-1 and mod_sprin_a_l[mod_a_ind+1] == mod[2])) and 
                           mod[0] == 'somatic'):
@@ -304,7 +295,8 @@ def stochastic_sim(alleles, mods, sex_det,
         alleles - list of locis, with each loci being a list of possible alleles at that loci. wt goes last
         mods - list of lists, each list represents a possible modification. Each modification takes the form
                 [timing, [required alleles for modification], target allele, [possible replacement alleles]]
-        sex_det - 
+        sex_det - list representing the sex determination system, what alleles override females, and what 
+                alleles override males
         num_gens - number of generations over which to run the simulation
         intro - introduction parameters, of the form [which sex, which genotype, introduction frequency]
         d_a - list of lists representing drive activity. each drive activity gets a list, with the values inside
@@ -314,6 +306,12 @@ def stochastic_sim(alleles, mods, sex_det,
                 [sex affected, [alleles required for fc], cost, [alleles required for rescue], fc type]
         s_c - list of lists of fecundity costs (sterility cost). 
         add_intro = [[sex, genotype, release proportion, release generation, release periodicity, number of releases]], 
+        run - string label for the given simulation run
+        K - int, the carrying capacity
+        n_o - int number of offspring for each other to have
+        g_f - a number, represents the rate of population growth when population is near zero
+        cross_dict - the cross dictionary: contains each possible genotype cross, and the resulting probabilities
+                of each offspring
     returns:
         df_adults - a dataframe containing each genotype possible, and the number of adults
                 of that genotype, for each generation simulated
@@ -332,9 +330,10 @@ def stochastic_sim(alleles, mods, sex_det,
     genotypes_raw = list(product(*diploid_loci))
     
     nonsense_genotypes = []
-    nonsense_alleles = []
     genotypes = [[], [], [], []]
     
+    # create lists of all possible female / male genotypes
+
     if sex_det[0] == 'autosomal':
         genotypes[0] = genotypes_raw
         genotypes[1] = genotypes_raw
@@ -365,8 +364,7 @@ def stochastic_sim(alleles, mods, sex_det,
                 else:
                     genotypes[0].append(genotype)
                     genotypes[2].append(geno)
-                    
-        
+                        
     elif sex_det[0] == 'ZW_viable':
         for genotype in genotypes_raw:
             geno = [a for l in genotype for a in l]
@@ -422,36 +420,32 @@ def stochastic_sim(alleles, mods, sex_det,
                 else:
                     genotypes[1].append(genotype)
                     genotypes[3].append(geno)
-
-        
-    elif sex_det[0] == 'plant XY':
-        # later
-        later = []
-        
-    elif sex_det[0] == 'plant autosomal':
-        # later
-        later = []
         
     else:
-        return('Throw error message here')
+        raise ValueError(f'First entry of sex_det must be "autosomal" "XY" "ZW_viable" or "ZW". \
+                         Did not recognize {sex_det[0]}')
     geno_alleles = genotypes[2:]
     fitness = fitness_cost(f_c, geno_alleles)
     fertility = sterility_cost(s_c, geno_alleles)
     n_r_d = num_loci-1
     adults = [[[]], [[]]]
-        
+    
+    # initialize population
     for individual in range(int(K/2)):
         adults[0][0].append(genotypes[0][-1])
         adults[1][0].append(genotypes[1][-1])
 
+    # separate list of adults to list of population sizes
     total_pop_list = [[],[]]
     total_pop_list[0].append(len(adults[0][0]))
     total_pop_list[1].append(len(adults[1][0]))
 
+    # add introduced individuals (to adults, not total_pop)
     for sub_intro in intro:
         for individual in range(int(sub_intro[2]*K)):
             adults[sub_intro[0]][0].append(genotypes[sub_intro[0]][sub_intro[1]])
 
+    # reformat modifications with efficiencies
     for a in d_a:
         a.append(1 - np.sum(a))
     d_a_copy = copy.deepcopy(d_a)
@@ -468,6 +462,7 @@ def stochastic_sim(alleles, mods, sex_det,
     mod_dict = {}
     mod_dim_max_ind = 0
 
+    # populate modification dictionary with information
     for mod in mods:
         if (mod[0], mod[2]) in mod_dict:
             mod_dim_counter = mod_dict[(mod[0], mod[2])][0]
@@ -500,14 +495,15 @@ def stochastic_sim(alleles, mods, sex_det,
 
     elif isinstance(r_d[0], list):
         if len(r_d[0]) == len(r_d[1]) == n_r_d:
-            err = 'NA'
+            pass
         else:
-            err = 'throw error: must have the same number of recombination rates for each sex'
+            raise ValueError('must have same number of recombination rates for each sex')
 
     else:
-        err = 'throw error: r_d must be either a single list or a pair of lists of \
-        length equal to the number of recombination distances'
+        raise TypeError('r_d must be either a single list or a pair of lists of \
+                        length equal to the number of recombination distances')
     
+    # get probabilities of offspring from recombination distances
     r_d_full = []
     if n_r_d > 0:
         for r_ind, rec in enumerate(r_d):
@@ -529,11 +525,13 @@ def stochastic_sim(alleles, mods, sex_det,
     
     r_d_ind_list = r_d_full[7]
     
+    # reformat additional releases
     additonal_release_list = []
     if add_intro != []:
         for add_release in add_intro:
             additonal_release_list.append([add_release[3] + add_release[4]*g for g in range(add_release[5])])
 
+    # SIMULATE !! Go Generation by Generation:
     for gen in range(num_gens):
         adults[0].append([])
         adults[1].append([])
@@ -545,10 +543,12 @@ def stochastic_sim(alleles, mods, sex_det,
                     if individual == 0:
                         print("\nintroducing", genotypes[add_intro[a_i][0]][add_intro[a_i][1]], "individual to generation", gen)
         
+        # if there are mate-able adults, we mate them!
         if adults[1][gen] != [] and adults[0][gen] != []:
             nonsense_seen = []
-            # nonsense_seen.append("oneThing")
+            # each mother gets mated
             for mother in adults[0][gen]:
+                # random choice of a father
                 father = random.choice(adults[1][gen])
 
                 mother_alleles = genotypes[2][genotypes[0].index(mother)]
@@ -603,12 +603,15 @@ def stochastic_sim(alleles, mods, sex_det,
                     offspring_modified[1] = [x/4 for x in offspring_modified[1]]
                     cross_dict[(genotypes[0].index(mother), genotypes[1].index(father))] = offspring_modified
 
+                # given the modified offspring probabilities, choose how many to create
                 n_sprin = np.random.poisson(n_o*fertility[0][genotypes[0].index(mother)
                                                             ]*fertility[1][genotypes[1].index(father)])
+                # pull children at random
                 new_adult_inds = np.random.choice(range(len(offspring_modified[0])), n_sprin, True, offspring_modified[1])
                 new_adults = [offspring_modified[0][n_a_i] for n_a_i in new_adult_inds]
 
-                #survival_modifier = g_f/(1+(g_f-1)*(len(adults[0][gen])+len(adults[1][gen]))/K)
+                # survival modifier based off of total_pop, as we assume released transgenic individuals are released
+                    # sufficiently late in the lifecycle, such that they do not compete for resources
                 survival_modifier = g_f/(1+(g_f-1)*(total_pop_list[0][gen]+total_pop_list[1][gen])/K)
 
                 if sex_det[0] == 'autosomal':
@@ -618,20 +621,17 @@ def stochastic_sim(alleles, mods, sex_det,
                         sex = sexes[index]
                         if survival_chances[index] <= 2/n_o*fitness[sex][genotypes[sex].index(new_adult)]*survival_modifier:
                             adults[sex][gen+1].append(new_adult)
-                        # if np.random.binomial(1, 2/n_o*fitness[sex][genotypes[sex].index(new_adult)]*survival_modifier):
-                        #     adults[sex][gen+1].append(new_adult)
 
                 else: # (sex_det[0] == 'XY') or (sex_det[0] == 'ZW'): # or ZW_viable!!
+                    # we generate random floats to use as survival probabilities
                     survival_chances = np.random.rand(len(new_adults))
                     for survival_index, new_adult in enumerate(new_adults):
-                        # new_adult_a = allele_list(new_adult, 'genotype')
-                        #if any([all_option(s_c, new_adult_a) for s_c in sex_det[2]]):
+                        # behavior for males
                         if new_adult in genotypes[1]:
-                            #if np.random.binomial(1, 2/n_o*fitness[1][genotypes[1].index(new_adult)]*survival_modifier):
                             if survival_chances[survival_index] <= 2/n_o*fitness[1][genotypes[1].index(new_adult)]*survival_modifier:
                                 adults[1][gen+1].append(new_adult)
+                        # behavior for females
                         elif new_adult in genotypes[0]: #any([all_option(s_c, new_adult_a) for s_c in sex_det[1]]):
-                            #if np.random.binomial(1, 2/n_o*fitness[0][genotypes[0].index(new_adult)]*survival_modifier):
                             if survival_chances[survival_index] <= 2/n_o*fitness[0][genotypes[0].index(new_adult)]*survival_modifier:
                                 adults[0][gen+1].append(new_adult)
                         else:
@@ -639,20 +639,21 @@ def stochastic_sim(alleles, mods, sex_det,
                             nonsense_seen.append(str(new_adult))
                             nonsense_seen.append("a")
 
+            # total up this generation's population BEFORE adding any transgenic individuals
             total_pop_list[0].append(len(adults[0][gen+1]))
             total_pop_list[1].append(len(adults[1][gen+1]))
     
+    # a check for the creation of 'nonsense' genotypes, which are neither male nor female
     if nonsense_seen != []:
         print("Nonsense Genotype alert for: ")
         print(set(nonsense_seen))
     
     adults_temp = [[], []]
 
+    # pull genotype information out from list of individuals
     for sex in [0, 1]:
         for n in range(num_gens+1):
             gen_count = []
-            ClvR_count = []
-            non_ClvR_count = []
             for geno in genotypes[sex]:
                 gen_count.append(adults[sex][n].count(geno))
             adults_temp[sex].append(gen_count)
@@ -757,6 +758,7 @@ def stochastic_sim(alleles, mods, sex_det,
                     inplace = True)
     new_df_alleles['Run'] = run
     
+    # return dataframe and cross_dict !
     return(df_adults, df_alleles, df_total, new_df_alleles, df_total_pop, cross_dict)
 
 
@@ -765,24 +767,58 @@ def run_stochastic_sim(alleles = ALLELES, mods = MODS, sex_det = SEX_DET,
                        f_c = F_C, s_c = S_C, add_intro = ADD_INTRO, run = RUN,
                        k = K, n_o = N_O, g_f = G_F, cross_dict_orig = CROSS_DICT,
                        num_runs = NUM_RUNS, file_name = FILE_NAME):
-    
+    """ a function that calls the stochastic simulation, given all starting parameters
+    params:
+        alleles - list of locis, with each loci being a list of possible alleles at that loci. wt goes last
+        mods - list of lists, each list represents a possible modification. Each modification takes the form
+                [timing, [required alleles for modification], target allele, [possible replacement alleles]]
+        sex_det - list representing the sex determination system, what alleles override females, and what 
+                alleles override males
+        num_gens - number of generations over which to run the simulation
+        intro - introduction parameters, of the form [which sex, which genotype, introduction frequency]
+        d_a - list of lists representing drive activity. each drive activity gets a list, with the values inside
+                representing the frequency of success for each outcome
+        r_d - list of recombination distances, values range from 0 (co-inherited) to 50 (separate chromosomes)
+        f_c - list of lists representing fitness cost. Each fc takes the form 
+                [sex affected, [alleles required for fc], cost, [alleles required for rescue], fc type]
+        s_c - list of lists of fecundity costs (sterility cost). 
+        add_intro = [[sex, genotype, release proportion, release generation, release periodicity, number of releases]], 
+        run - string label for the given simulation run
+        K - int, the carrying capacity
+        n_o - int number of offspring for each other to have
+        g_f - a number, represents the rate of population growth when population is near zero
+        cross_dict_orig - starting dictionary for the cross dictionary: contains each possible genotype cross, and the 
+                resulting probabilities of each offspring
+        num_runs - int of the number of runs to perform
+        file_name - the 'file name' to append data to
+
+    returns: NA
+    """
+    # copy the cross dictionary
     cross_dict = copy.deepcopy(cross_dict_orig)
 
+    # set up loop of runs
     for i in range(1, num_runs+1):
+        # append which run it is to the given run_label
         run_label = run + "_" + str(i)
+        # we get timing information :)
         startTime = time.time()
+        # run simulation !!!
         simulation = stochastic_sim(alleles, mods, sex_det, 
                               num_gens, intro, d_a, r_d, f_c, s_c, add_intro, 
                               run_label, k, n_o, g_f, 
                               cross_dict)
+        # get timing information :)
         endTime = time.time()
         
+        # write each of our dataframes to its own separate csv
         for file_i, type in enumerate(["_genotype", "_allele", "_total", "_NEWallele", "_total_pop"]):
             df = simulation[file_i]
             fn = file_name + str(type) + ".csv"
 
             df.to_csv(fn, sep=',', mode = 'a')
 
+        # update cross_dict
         cross_dict = simulation[5]
         
         print("time taken on run " + str(i) + ": " + str(endTime - startTime))
@@ -790,6 +826,7 @@ def run_stochastic_sim(alleles = ALLELES, mods = MODS, sex_det = SEX_DET,
     print(str(run) + " appended to " + str(file_name) + "\n")
 
 def main():
+    # make default parameters global
     global ALLELES, MODS, SEX_DET, NUM_GENS, INTRO, D_A, R_D, F_C, S_C, ADD_INTRO
     global K, N_O, G_F, CROSS_DICT, NUM_RUNS, RUN, FILE_NAME
 
@@ -810,17 +847,6 @@ def main():
                         help = "which sex determination system to use, for suppression only. \
                         Options include XY, XYsterile, ZW, ZWsterile, ZW_viable, and ZW_Z_Wind",
                         type=str, default = "modification")
-
-    # parser.add_argument("--XY", help = "use an XY determination, where our sail (S) cuts aromatase",
-    #                     action="store_true")
-    # parser.add_argument("--XYsterile", help = "use an XY determination, where our sail (S) cuts aromatase AND a fertility gene",
-    #                     action="store_true")
-    # parser.add_argument("--ZW", help = "use a ZW determination, where our sail (S) cuts aromatase",
-    #                     action="store_true")
-    # parser.add_argument("--ZWsterile", help = "use an ZW determination, where our sail (S) cuts aromatase AND a fertility gene",
-    #                     action="store_true")
-    # parser.add_argument("--ZW_viable", help = "use a ZW determination, where WW is viable and our sail (S) cuts aromatase",
-    #                     action="store_true")
     
     parser.add_argument("--MC", help = "also have maternal carryover, where our sail (S) cuts aromatase",
                         action="store_true")
@@ -864,60 +890,68 @@ def main():
 
     args = parser.parse_args()
 
-    print(args.recomb_dist)
     exit
 
+    # update drive efficiencies if there is no input
     if not args.efficiency:
         args.efficiency = D_A
 
-    # handle type of simulation
+    # handle type of simulation - initialize as autosomal
     sex_det = ['autosomal', [], []]
 
+    # XY includes XY locus, sex determination, and new recomb_distances
     if args.sex_determination == "XY":
         args.alleles = [['E', 'O'], ['S', 'W'], ['X', 'Y']]
         sex_det = ['XY', [], [['E', 'E']]]
         if args.recomb_dist == R_D:
             args.recomb_dist = [50, 50]
 
+    # XY sterile includes XY locus, sterility locus, sex determination, new modification, and sterility cost
     elif args.sex_determination == "XYsterile":
         args.alleles = [['I', 'F'], ['E', 'O'], ['S', 'W'], ['X', 'Y']]
         sex_det = ['XY', [], [['E', 'E']]]
         args.mods = [['germline', ['S'], 'O', ['E']], ['germline', ['S'], 'F', ['I']]]
         args.sterility_cost.append([0, "II", 1.0])
         if args.recomb_dist == R_D:
-            args.recomb_dist = [50, 50]
+            args.recomb_dist = [50, 50, 50]
 
+    # ZW rquires ZW locus, sex determination, and new recomb_distances
     elif args.sex_determination == "ZW":
         args.alleles = [['E', 'O'], ['S', 'D'], ['Z', 'W']]
         sex_det = ['ZW', [], [['E', 'E']]]
         if args.recomb_dist == R_D:
             args.recomb_dist = [50, 50]
 
+    # ZWsterile requires ZW locus, fertility locus, sex determination, new modification, and sterility cost
     elif args.sex_determination == "ZWsterile":
         args.alleles = [['I', 'F'], ['E', 'O'], ['S', 'D'], ['Z', 'W']]
         sex_det = ['ZW', [], [['E', 'E']]]
         args.mods = [['germline', ['S'], 'O', ['E']], ['germline', ['S'], 'F', ['I']]]
         args.sterility_cost.append([0, "II", 1.0])
         if args.recomb_dist == R_D:
-            args.recomb_dist = [50, 50]
+            args.recomb_dist = [50, 50, 50]
 
+    # ZW_viable requires ZW locus, sex determination, and new recomb_dist
     elif args.sex_determination == "ZW_viable":
         args.alleles = [['E', 'O'], ['S', 'D'], ['Z', 'W']]
         sex_det = ['ZW_viable', [], [['E', 'E']]]
         if args.recomb_dist == R_D:
             args.recomb_dist = [50, 50]
 
+    # ZW_Z_Wind requires a z* as the wind, sex determination, and different mods
     elif args.sex_determination == "ZW_Z_Wind":
         args.alleles = [['E', 'O'], ['Z*', 'Z', 'W']]
         sex_det = ['ZW', [], [['E', 'E']]]
         args.mods = [['germline', ['Z*'], 'O', ['E']]]
 
+    # convert germline conversion to somatic conversion
     if args.somatic:
         new_mod_list = []
         for mod in args.mods:
             new_mod_list.append(['somatic', mod[1], mod[2], mod[3]])
         args.mods = new_mod_list
 
+    # add maternal carryover (zygotic modification)
     if args.MC:
         new_arg = ['zygotic', [['S'], [], []], 'O', ['E']]
         if args.mods[0][0] == 'somatic':
@@ -945,19 +979,11 @@ def main():
     for sex, allele, cost in args.fitness_cost:
         fitness_cost.append([int(sex), list(allele), float(cost), ['Q'], fitness_type])
 
-    ## handle fitness costs
-    fitness_cost = []
-    for sex, allele, cost in args.fitness_cost:
-        fitness_cost.append([int(sex), list(allele), float(cost), ['Q'], fitness_type])
-    
-    print(fitness_cost)
-
+    # handle sterility costs
     sterility_cost = []
     for sex, allele, cost in args.sterility_cost:
         sterility_cost.append([int(sex), list(allele), float(cost), ['Q'], "additive"])
     
-    print(sterility_cost)
-
     ## handle additional intros
     add_intros = []
     print(args.additional_intros)
