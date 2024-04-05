@@ -4,7 +4,7 @@ alleleSail_sim was built in Python3.7, and requirements can be found in requirem
 
 ## How to use
 
-More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
+More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
 
 
 ## Assumptions
