@@ -2,6 +2,8 @@ alleleSail_sim is a python commandline program that runs discrete time & generat
 
 alleleSail_sim was built in Python3.7, and module requirements can be found in requirements.txt
 
+To analyze the data, we wrote our own R scripts - the data we analyzed can be found in the data folder, and figures were generated using the R markdown script figures_4-4.Rmd.  
+
 ## How to use
 
 More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
