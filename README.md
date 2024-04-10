@@ -8,7 +8,7 @@ To analyze the data, we wrote our own R scripts - the data we analyzed can be fo
 
 More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
 
-As a quick tl;dr you can clone this github repository (which should take ), and simply run ```python alleleSail_sim.py -h``` to see the command line arguments that the simulation takes in. Data is written out to five files, ```_genotype``` which includes the number of individuals of each genotype, ```_allele``` which includes the number of individuals that carry each allele, ```_NEWallele``` which includes the absolute number of each allele in the popuolation, ```_total``` which includes the total population including transgenic additions, and ```_total_pop``` which includes total population WITHOUT including the transgenic additions
+As a quick tl;dr you can clone this github repository (which should take a few minutes), and simply run ```python alleleSail_sim.py -h``` to see the command line arguments that the simulation takes in. Data is written out to five files, ```_genotype``` which includes the number of individuals of each genotype, ```_allele``` which includes the number of individuals that carry each allele, ```_NEWallele``` which includes the absolute number of each allele in the popuolation, ```_total``` which includes the total population including transgenic additions, and ```_total_pop``` which includes total population WITHOUT including the transgenic additions
 
 ## Assumptions
 
