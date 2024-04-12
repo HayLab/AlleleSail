@@ -4,6 +4,13 @@ alleleSail_sim was built in Python3.7, and has been tested to run on Python3.8 a
 
 To analyze the data, we wrote our own R scripts - the data we analyzed can be found in the data folder, and figures were generated using the R markdown script figures_4-4.Rmd.  
 
+# Table of Contents
+1. [How to use](#How-to-use)
+2. [Data Files](#Data-Files)
+3. [Assumptions](#Assumptions)
+4. [Simulation Structure and Details](#Simulation-Structure-and-Details)
+5. [Density-Dependent Growth](#Density-Dependent-Growth)
+
 ## How to use
 
 More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
