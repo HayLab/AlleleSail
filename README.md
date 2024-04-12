@@ -8,7 +8,38 @@ To analyze the data, we wrote our own R scripts - the data we analyzed can be fo
 
 More information on how to use this simulation can be found in the demo: [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
 
-As a quick tl;dr you can clone this github repository (which should take a few minutes), and simply run ```python alleleSail_sim.py -h``` to see the command line arguments that the simulation takes in. Data is written out to five files, ```_genotype``` which includes the number of individuals of each genotype, ```_allele``` which includes the number of individuals that carry each allele, ```_NEWallele``` which includes the absolute number of each allele in the popuolation, ```_total``` which includes the total population including transgenic additions, and ```_total_pop``` which includes total population WITHOUT including the transgenic additions
+As a quick tl;dr you can clone this github repository (which should take a few minutes), and simply run ```python alleleSail_sim.py -h``` to see the command line arguments that the simulation takes in. Data is written out to five files, ```_genotype``` which includes the number of individuals of each genotype, ```_allele``` which includes the number of individuals that carry each allele, ```_NEWallele``` which includes the absolute number of each allele in the popuolation, ```_total``` which includes the total population including transgenic additions, and ```_total_pop``` which includes total population WITHOUT including the transgenic additions.
+
+## Data Files
+
+The data files here are used to generate the figures in the paper. They are stored by date of generation, and the contents are as follows.
+
+| folder | files | data | figure in paper |
+| :----- | :--- | :--- | :-------------- |
+| 1-11 | noSail_modification_MC ... | release of individuals with the "edit" but no "editor", for introduction frequencies between 0 and 0.5, and for editor costs between -0.05 (a benefit) per allele and 0.1 (cost) per allele. | used in Figure 2, Figure 3, Supplemental Figure 3, and Supplemental Figure 4.
+| 1-11 | EvI/introFreq_{value} ... | release of individuals carrying both edit and editor, for the given introduction frequency, for fitness costs on the Edit, ranging between -0.05 and 0.2 per allele | used in figure 2
+| 1-11 | EvI/last_gen_E_carrier | information pulled from multiple introduction frequency _allele files that gives the number of carriers of the edit "E" at generation 50 (the last generation of the simulation). For various fitness costs on the Edit | used in heatmaps of figure 2
+| 1-11 | EvI/last_gen_O_carrier | information pulled from multiple introduction frequency _allele files that gives the number of carriers of the NOT-edit "O" at generation 50 (the last generation of the simulation). For various fitness costs on the Edit | used in heatmaps of figure 2 (homozygotes = total population - individuals that carry the wildtype)
+| 1-11 | SvI/last_gen_E_carrier | information pulled from multiple introduction frequency _allele files that gives the number of carriers of the edit "E" at generation 50 (the last generation of the simulation). For various fitness costs on the Editor | used in heatmaps of figure 2
+| 1-11 | SvI/last_gen_O_carrier | information pulled from multiple introduction frequency _allele files that gives the number of carriers of the NOT-edit "O" at generation 50 (the last generation of the simulation). For various fitness costs on the Editor | used in heatmaps of figure 2 (homozygotes = total population - individuals that carry the wildtype)
+| 1-19 | sex_equilibriums... | 500 simulations of either XY or ZW sex systems, with edit/edit individuals released at various introduction frequencies | figure 6
+| 2-5 | low_efficiencies_MC ... | population modification simulations where our editor has lower efficiencies, and maternal carryover of editing occurs. | Figure 3
+| 2-5 | low_efficiencies_noMC ... | population modification simulations where our editor has lower efficiencies, and maternal carryover does not occur. | Figure 3
+| 2-5 | rd_0-clvg_0.5_last_gen_E | modification simulations with 50% cleavage, and a recombination distance of zero (linked editor and edit). For various introduction frequencies and various fitness costs on the edit. | Figure 4
+| 2-5 | rd_50-clvg_0.5_last_gen_E | modification simulations with 50% cleavage, and a maximal recombination distance (unlinked editor and edit). For various introduction frequencies and various fitness costs on the edit. | Figure 4
+| 2-5 | svi_rd_0-clvg_0.5_last_gen_E | modification simulations with 50% cleavage, and a recombination distance of zero (linked editor and edit). For various introduction frequencies and various fitness costs on the editor. | Supplemental Figure 5
+| 2-5 | svi_rd_50-clvg_0.5_last_gen_E | modification simulations with 50% cleavage, and a maximal recombination distance (unlinked editor and edit). For various introduction frequencies and various fitness costs on the editor. | Supplemental Figure 5
+| 2-23 | ais_51releases_noMC... | continuous releases of aromatase cleavers / sex skew individuals, for various systems (XY, ZW, with and without sterililty, with different introductions of XX or XY or ZZ or ZW). | Figure 7, Supplemental Figure 9, Supplemental Figure 7.
+| 2-23 | ais_ZW_ZWind_noMC ... | continuous releases of aromatase cleavers / sex skew individuals, where the cleaver/editor is on the Z chromosome | Supplemental Figure 7
+| 2-23 | low_efficiencies_int_{value}_MC_...| population modification simulations where the editor has editing efficiencies of 15%, 50%, or 100%, maternal carryover occurs, and the release occurs at an introduction of {value}%. | Supplemental Figure 4 
+| 2-23 | low_efficiencies_int_{value}_noMC_...| population modification simulations where the editor has editing efficiencies of 15%, 50%, or 100%, maternal carryover does not occur, and the release occurs at an introduction of {value}%. | Supplemental Figure 4
+| 2-23 | 51releases_highEfficiencies_2... | name is slightly misleading - these files contain continuous releases of aromatase cleavers that have cleavage efficiency of less than 100 - the name compares to "lowEfficieny" modification runs that go as low as 15% efficiency, where these range from 80% to 100%. For XY, ZW, and fsRIDL systems | Supplemental Figure 9
+| 3-5 | full_five_noMC_... | suppression simulations with only a single release, for XY releasing XX, XY releasing XY, ZW WW non-Viable, ZW WW-viable releasing ZW, ZW WW-viable releasing ZZ, and fsRIDL. | Used in Figure 5, Supplemental Figure 6, Supplemental Figure 7, and Supplemental Figure 8
+| 3-11 | Sail_modification_MC_{fitness type}... | For various introduction frequencies and fitness costs on the editor, with maternal carryover occurring, population modification simulations where fitness costs are applied using the listed {fitness type} | Supplemental Figure 1
+| 3-11 | noSail_modification_MC_{fitness type}... | The same as above, but individuals released do not carry the editor | Supplemental Figure 1
+| 3-11 | ZW_Zwind_SingleRelease_noMC... | single releases of an aromatase cleaver attached to the Z chromosome | Supplemental Figure 7
+| 3-28 | DAR_{modification type}_... | simulations for dominant, additive, and recessive costs on the editor, for the given {modification type} (somatic or germline editing). No Maternal carryover occurs. | Supplemental Figure 2
+| 3-28 | DAR_{modification type}MC_... | simulations for dominant, additive, and recessive costs on the editor, for the given {modification type} (somatic or germline editing). Maternal carryover occurs. | Supplemental Figure 2
 
 ## Assumptions
 
