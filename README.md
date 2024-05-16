@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/774000459.svg)](https://zenodo.org/doi/10.5281/zenodo.11205748) [![Demo](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HayLab/AlleleSail/blob/main/AlleleSail_demo.ipynb)
 alleleSail_sim is a python commandline program that runs discrete time & generation stochastic simulations, used for modeling the behavior of allele sails for both modification and suppression.
 
 alleleSail_sim was built in Python3.7, and has been tested to run on Python3.8 and 3.10. Module requirements can be found in requirements.txt
