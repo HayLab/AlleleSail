@@ -25,7 +25,7 @@ As a quick tl;dr you can clone this github repository (which should take a few m
 
 **2) All females mate.** If there is a sufficient number of males, each female will reproduce. Population is therefore dependent on the number of females
 
-**3) Mating is monogamous.** If a female mates with a male, both individuals are removed from the breeding population.
+**3) Females are monogamous.** Each female mates with a single male, and then mates no more. Males, however, can be mated with multiple times.
 
 **4) Population growth is logistic, dependent on adult population density.** Specifically, expected population follows the Beverton-Holt Model. When the population size is at carrying capacity, each individual mating will have two offspring that survive. When the poulation size is low, more or all offspring will survive. A very small population will experience logistic growth. *note: species such as Anopheles are more dependent on larval-density. As such, the suppression trends modeled here may not accurately represent behavior in some species, but comparisons should hold between suppression systems. More on this can be read below*
 
