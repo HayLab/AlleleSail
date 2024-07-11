@@ -1,0 +1,2622 @@
+---
+title: "Figures 4-4"
+author: "Michelle Johnson"
+date: "2024-04-04"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+---
+title: "figures_3-17"
+author: "Michelle Johnson"
+date: "2024-03-18"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+Setting up...
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(readr)
+library(viridis)
+library(ggpubr)
+library(ggplot2)
+library(gtable)
+
+options(dplyr.summarise.inform = FALSE)
+options(tidyverse.quiet = TRUE)
+#library(paletteer)
+#library(RColorBrewer)
+#library(colorblindcheck)
+```
+
+Custom functions
+
+```{r, eval = TRUE}
+clean <- function(dataset) {
+  dataset %>% select(-X) %>%
+  filter(Generation != "Generation") %>%
+  separate(Run, c(NA, "fitCost", NA, "introFreq", "Run"), sep = "_") %>%
+  transform(Count = as.numeric(Count), Generation = as.numeric(Generation),
+            fitCost = as.numeric(fitCost), introFreq = as.numeric(introFreq),
+            Run = as.numeric(Run))
+}
+
+na_palette_value <- "#FDE725FF"
+null_plot <- ggplot() + theme_void()
+
+plasma_pal <- c(viridis::viridis(n = 1000, direction = -1), "#e32f6c")
+
+```
+
+## Modifications
+
+### Figure 2 - Neutral Editor
+
+Get data for 10% introduction frequency 
+
+```{r fig2 data}
+gmcwithSail_allele2 <- read.csv("data/1-11/EvI/introFreq_0.100_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  mutate(type = "with Sail")
+
+gmcwithSail_total_ds2 <- read.csv("data/1-11/EvI/introFreq_0.100_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  group_by(Generation, introFreq, Scost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "with Sail")
+
+# get without-sail data
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
+  mutate(type = "no Sail")
+
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  group_by(Generation, introFreq, Scost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05)) %>%
+  mutate(type = "no Sail")
+
+gmcBig_allele2 <- rbind(gmcwithSail_allele2, gmcnoSail_allele2)
+gmcBig_total_ds2 <- rbind(gmcwithSail_total_ds2, gmcnoSail_total_ds2)
+
+gmcBig_data2 <- gmcBig_allele2 %>%
+  group_by(Generation, introFreq, Scost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(gmcBig_total_ds2) %>%
+  mutate(percent = Count/(totalPop*2)) %>%
+  group_by(Generation, introFreq, Scost, Allele, type) %>%
+  summarise(`Average Frequency` = mean(percent))
+```
+
+One panel sail, second panel wind
+
+```{r fig2 toppanel, fig.height=3, fig.width=6.5}
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+figure2 <- gmcBig_data2 %>%
+  filter(Allele %in% c("E"), Scost %in% c(0.05, 0.0, -0.05)) %>%
+  mutate(Allele = ifelse(type == "no Sail", "no Editor",
+                         ifelse(Allele == "E", "Editor present", "Editor")),
+         Fitness = factor(ifelse(Scost == 0, "Neutral Edit",
+                          ifelse(Scost < 0, "Beneficial Edit", "Maladaptive Edit")),
+                          levels = c("Beneficial Edit", "Neutral Edit", "Maladaptive Edit"))) %>%
+  ggplot(aes(x = Generation, y = `Average Frequency`, color = Fitness, linetype = Allele)) +
+  geom_line(size = 1) +
+  theme_light() +
+  labs(color = "") +
+  scale_linetype_manual(values = c(1, 4)) +
+  scale_colour_manual(values = c("#6d2ac7", "#61D3E6", "#e32f6c")) +
+  labs(title = "Frequency of Edits",
+       linetype = "Presence of Editor")
+
+f2_legend <- get_legend(figure2)
+
+figure2_2 <- gmcBig_data2 %>%
+  filter(Allele %in% c("S"), Scost %in% c(0.05, 0.0, -0.05)) %>%
+  mutate(Allele = ifelse(type == "no Sail", "no Editor",
+                         ifelse(Allele == "E", "Editor present", "Editor")),
+         Fitness = ifelse(Scost == 0, "Neutral Edit",
+                          ifelse(Scost < 0, "Beneficial Edit", "Maladaptive Edit"))) %>%
+  ggplot(aes(x = Generation, y = `Average Frequency`, color = Fitness)) +
+  geom_line(size = 1) +
+  theme_light() +
+  scale_linetype_manual(values = c(1)) +
+  scale_colour_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6")) +
+  labs(title = "Frequency of Editor") +
+  theme(legend.position = "none") +
+  ylim(0.0, 0.15)
+
+fig_onePanel <- ggarrange(figure2  +
+  theme(legend.position = "none"), figure2_2, as_ggplot(f2_legend),
+  widths = c(2, 2, 1.3), labels = c("A", "B", " "),
+  ncol = 3)
+```
+
+
+Two panels of heatmaps, homozygous frequency in the population vs. carriers, for cost on Sail (E)
+
+```{r fig2 bottompanel, fig.height=6.7, fig.width=8}
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+fig_height = 6.7
+fig_width = 8
+
+EvI_O <- read.csv("data/1-11/EvI/last_gen_O_carrier.csv") %>%
+  mutate(fitCost = fitCost * 2)
+
+EvI_E <- read.csv("data/1-11/EvI/last_gen_E_carrier.csv") %>%
+  mutate(fitCost = fitCost * 2)
+
+EvI_homozygous <- EvI_O %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(O_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_h = totalPop - O_count) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Homozygous` = mean(p_h/totalPop)) %>%
+  ggplot(aes(x=fitCost, y=introFreq, fill = `Percent Homozygous`, color = `Percent Homozygous`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal, breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = "Percent Homozygous",
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Edit",
+       fill = "") +
+  theme_light()
+
+keypoints_EvI_O <- EvI_O %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(O_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_h = totalPop - O_count) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Homozygous` = mean(p_h/totalPop)) %>%
+  filter((fitCost == 0.06 & introFreq == 0.25) |
+    #(fitCost == 0.05 & introFreq == 0.3) |
+           #(fitCost == 0.08 & introFreq == 0.4) |
+           #(fitCost == -0.05 & introFreq == 0.075) |
+           (fitCost == 0.0 & introFreq == 0.1) |
+           (fitCost == 0.14 & introFreq == 0.15)) %>%
+  mutate(`Percent Homozygous` = as.numeric(`Percent Homozygous`))
+
+text_size <- 4
+box_border_size <- 1
+
+EvI_homozygous2 <- EvI_homozygous + 
+  annotate("rect", 
+           xmin = keypoints_EvI_O[1,]$fitCost - 0.01, 
+           xmax = keypoints_EvI_O[1,]$fitCost + 0.01, 
+           ymin = keypoints_EvI_O[1,]$introFreq + 0.0125, 
+           ymax = keypoints_EvI_O[1,]$introFreq - 0.0125,
+           color = "#FDE725FF", fill = NA, linewidth = box_border_size) +
+  annotate("text", 
+           x = keypoints_EvI_O[1,]$fitCost - 0.042, 
+           y = keypoints_EvI_O[1,]$introFreq + 0.032, 
+           label = round(keypoints_EvI_O[1,]$`Percent Homozygous`, digits = 3),
+           color = "#FDE725FF", size = text_size) + 
+  annotate("rect", 
+           xmin = keypoints_EvI_O[2,]$fitCost - 0.01, 
+           xmax = keypoints_EvI_O[2,]$fitCost + 0.01, 
+           ymin = keypoints_EvI_O[2,]$introFreq + 0.0125, 
+           ymax = keypoints_EvI_O[2,]$introFreq - 0.0125,
+           color = "#FDE725FF", fill = NA, linewidth = box_border_size) +
+  annotate("text", 
+           x = keypoints_EvI_O[2,]$fitCost - 0.042, 
+           y = keypoints_EvI_O[2,]$introFreq + 0.032, 
+           label = round(keypoints_EvI_O[2,]$`Percent Homozygous`, digits = 3),
+           color = "#FDE725FF", size = text_size) + 
+  annotate("rect", 
+           xmin = keypoints_EvI_O[3,]$fitCost - 0.01, 
+           xmax = keypoints_EvI_O[3,]$fitCost + 0.01, 
+           ymin = keypoints_EvI_O[3,]$introFreq + 0.0125, 
+           ymax = keypoints_EvI_O[3,]$introFreq - 0.0125,
+           color = "#FDE725FF", fill = NA, linewidth = box_border_size) +
+  annotate("text", 
+           x = keypoints_EvI_O[3,]$fitCost - 0.048, 
+           y = keypoints_EvI_O[3,]$introFreq + 0.032, 
+           label = round(keypoints_EvI_O[3,]$`Percent Homozygous`, digits = 4),
+           color = "#FDE725FF", size = text_size)
+
+EvI_carriers <- EvI_E %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Carriers` = mean(p_c)) %>%
+  ggplot(aes(x=fitCost, y=introFreq, fill = `Percent Carriers`, color = `Percent Carriers`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal, breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = "Percent Carriers",
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Edit",
+       fill = "") +
+  theme_light()
+
+legend_height <- 0.55
+
+EvI_LEGEND_2 <- EvI_E %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Carriers` = mean(p_c)) %>%
+  ggplot(aes(x=fitCost, y=introFreq, fill = `Percent Carriers`)) + 
+  geom_tile() + 
+  theme_classic() + 
+  scale_fill_gradientn(colors = plasma_pal[999:1001], 
+                       breaks = c(0.998, 0.9985, 0.999, 0.9995, 1.0), 
+                       limits = c(0.998, 1.0),
+                       guide = guide_colorbar(draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(fill = "") +
+  theme(legend.key.height = unit(legend_height, "in"),
+        panel.spacing = unit(0,"cm"))
+
+EvI_LEGEND_2 <- EvI_LEGEND_2 %>%
+  get_legend() %>%
+  as_ggplot()
+
+
+figure2 <- ggarrange((EvI_homozygous2 + theme(legend.key.height = unit(legend_height, "in"),
+                                            panel.spacing = unit(0,"cm"))), 
+                    (EvI_carriers + theme(legend.key.height = unit(legend_height, "in"),
+                                          panel.spacing = unit(0,"cm"))),
+                    ncol = 2, labels = c("C", "D"),
+                    common.legend = T, legend = "right")
+
+figure2_extended <- ggarrange(figure2, null_plot, EvI_LEGEND_2, 
+                              ncol = 3, widths = c(5, 0.2, 0.8))
+
+comb_fig <- ggarrange(fig_onePanel, figure2_extended, nrow = 2, heights = c(0.9, 1))
+
+left_x <- 0.83
+leftmid_x <- 0.845
+rightmid_x <- 0.87
+right_x <- 0.885
+
+low_y <- 0.04
+mid_y <- 0.445
+high_y <- 0.45
+
+x1 <- 0.79
+x2 <- 0.83
+x3 <- 0.885
+x4 <- 0.925
+
+y1 <- 0.035
+y2 <- 0.445
+y3 <- 0.455
+
+comb_fig_annotated <- comb_fig + 
+  annotate("rect", xmin = x1, xmax = x2, ymin = y2, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("rect", xmin = x3, xmax = x4, ymin = y1, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y2, yend = y1, 
+           color = "gray60", linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y3, yend = y3, 
+           color = "gray60", linewidth = box_border_size)
+
+ggsave("figs-6_11/fig_2-Modification_Neutral-Editor.svg", plot = comb_fig_annotated,
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/fig_2-Modification_Neutral-Editor.png", plot = comb_fig_annotated,
+       height = fig_height, width = fig_width)
+
+comb_fig_annotated
+
+print("Saved to fig_2-Modification_Neutral-Editor")
+```
+
+### Supplemental Figure 1 - Dominant / Additive / Recessive Modification
+
+Get heatmap Data
+
+```{r}
+get_DAR_Sail_hm <- function(filename, type_label) {
+  read.csv(filename) %>%
+  filter(Generation == "50") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "Ecost", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            Run = as.numeric(Run),
+            introFreq = as.numeric(iF), Ecost = as.numeric(Ecost)) %>%
+  #filter(ifelse("Allele" %in% colnames(.), Allele == "E", TRUE)) %>%
+  mutate(type = type_label)
+}
+
+get_DAR_noSail_hm <- function(filename, type_label) {
+  read.csv(filename) %>%
+  clean() %>%
+  transform(Ecost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(#ifelse("Allele" %in% colnames(.), Allele == "E", TRUE),
+         Generation == 50) %>%
+  mutate(type = type_label)
+}
+
+rec_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_rec_total.csv", "recessive") %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+
+rec_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_rec_allele.csv", "recessive")
+
+add_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_add_total.csv", "additive") %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+  
+add_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_add_allele.csv", "additive")
+
+dom_total_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_dom_total.csv", "dominant") %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+  
+dom_alleles_hm <- get_DAR_Sail_hm("data/3-11/Sail_modification_MC_dom_allele.csv", "dominant")
+
+Sail_dom_hm <- dom_alleles_hm %>%
+  group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(dom_total_hm) %>%
+  mutate(percent = Count/(totalPop)) %>%
+  group_by(Generation, introFreq, Ecost, Allele, type) %>%
+  summarise(`Percent Carriers` = mean(percent))
+
+Sail_add_hm <- add_alleles_hm %>%
+  group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(add_total_hm) %>%
+  mutate(percent = Count/(totalPop)) %>%
+  group_by(Generation, introFreq, Ecost, Allele, type) %>%
+  summarise(`Percent Carriers` = mean(percent)) %>%
+  mutate(Ecost = Ecost * 2)
+
+Sail_rec_hm <- rec_alleles_hm %>%
+  group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(rec_total_hm) %>%
+  mutate(percent = Count/(totalPop)) %>%
+  group_by(Generation, introFreq, Ecost, Allele, type) %>%
+  summarise(`Percent Carriers` = mean(percent))
+```
+
+
+Some functions for heatmaps
+
+```{r}
+plot_carriers <- function(dataset, plot_title) {
+  dataset %>% filter(Allele == "E") %>%
+  ggplot(aes(x=Ecost, y=introFreq, fill = `Percent Carriers`, color = `Percent Carriers`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal, breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = plot_title,
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Edit",
+       fill = "Percent Carriers") +
+  theme_light()
+}
+
+plot_homozygs <- function(dataset, plot_title) {
+  dataset %>% filter(Allele == "O") %>%
+    mutate(`Percent Homozyg` = 1 - `Percent Carriers`) %>%
+  ggplot(aes(x=Ecost, y=introFreq, fill = `Percent Homozyg`, color = `Percent Homozyg`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal, breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = plot_title,
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Edit",
+       fill = "Percent Homozygous") +
+  theme_light()
+}
+```
+
+Some Functions for Single Runs
+
+```{r, Sail functions}
+get_DAR_Sail <- function(filename, type_label, introFreqs = c(0.025, 0.05, 0.1, 0.2), fitCosts = c(0.05, 0.00, -0.05)) {
+  read.csv(filename) %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "Ecost", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            Run = as.numeric(Run),
+            introFreq = as.numeric(iF), Ecost = as.numeric(Ecost)) %>%
+  filter(introFreq %in% introFreqs, Ecost %in% fitCosts) %>%
+  filter(ifelse("Allele" %in% colnames(.), Allele == "E", TRUE)) %>%
+  mutate(type = type_label)
+}
+
+get_DAR_noSail <- function(filename, type_label, introFreqs = c(0.025, 0.05, 0.1, 0.2), fitCosts = c(0.05, 0.00, -0.05)) {
+  read.csv(filename) %>%
+  clean() %>%
+  transform(Ecost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(introFreq %in% introFreqs, Ecost %in% fitCosts) %>%
+  filter(ifelse("Allele" %in% colnames(.), Allele == "E", TRUE)) %>%
+  mutate(type = type_label)
+}
+```
+
+Get Data
+
+```{r}
+dom_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_dom_total.csv", "dominant",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+dom_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_dom_NEWallele.csv", "dominant",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+
+add_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_add_total.csv", "additive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
+  mutate(Ecost = Ecost * 2)
+add_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_add_NEWallele.csv", "additive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
+  mutate(Ecost = Ecost * 2)
+
+rec_total <- get_DAR_Sail("data/3-11/Sail_modification_MC_rec_total.csv", "recessive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+rec_alleles <- get_DAR_Sail("data/3-11/Sail_modification_MC_rec_NEWallele.csv", "recessive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+
+Sail_allele <- rbind(rec_alleles, add_alleles, dom_alleles)
+Sail_total <- rbind(rec_total, add_total, dom_total) %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+
+Sail_DAR_data <- Sail_allele %>%
+  group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(Sail_total) %>%
+  mutate(percent = Count/(totalPop*2)) %>%
+  group_by(Generation, introFreq, Ecost, Allele, type) %>%
+  summarise(`Average Frequency` = mean(percent))
+
+dom_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_dom_total.csv", "dominant",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+dom_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_dom_NEWallele.csv", "dominant",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+
+add_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_add_total.csv", "additive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
+  mutate(Ecost = Ecost * 2)
+add_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_add_NEWallele.csv", "additive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.05, 0.0, 0.05, 0.1)) %>%
+  mutate(Ecost = Ecost * 2)
+
+rec_total <- get_DAR_noSail("data/3-11/noSail_modification_MC_rec_total.csv", "recessive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+rec_alleles <- get_DAR_noSail("data/3-11/noSail_modification_MC_rec_NEWallele.csv", "recessive",
+                          introFreqs = c(0.025, 0.1, 0.3), fitCosts = c(-0.1, 0.0, 0.1, 0.2))
+
+noSail_allele <- rbind(rec_alleles, add_alleles, dom_alleles)
+noSail_total <- rbind(rec_total, add_total, dom_total) %>%
+  mutate(totalPop = Count) %>% select(-Count) %>%
+  group_by(Generation, introFreq, Ecost, Run, type) %>%
+  mutate(totalPop = sum(totalPop))
+
+noSail_DAR_data <- noSail_allele %>%
+  group_by(Generation, introFreq, Ecost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(noSail_total) %>%
+  mutate(percent = Count/(totalPop*2)) %>%
+  group_by(Generation, introFreq, Ecost, Allele, type) %>%
+  summarise(`Average Frequency` = mean(percent))
+```
+
+Make single Runs
+
+```{r}
+DAR_10_fb <- rbind(mutate(noSail_DAR_data, sail = "Editor Not Present"),
+      mutate(Sail_DAR_data, sail = "Editor Present")) %>%
+  filter(Allele == "E", introFreq == 0.1, Ecost %in% c(-0.1)) %>%
+  mutate(fitness = ifelse(Ecost < 0, "10% Fitness Benefit",
+                          ifelse(Ecost > 0, "10% Fitness Cost", "Neutral Locus"))) %>%
+  mutate(fitness = factor(fitness,
+                          levels = c("10% Fitness Benefit", "Neutral Locus", "10% Fitness Cost")),
+         type = factor(type,
+                       levels = c("dominant", "additive", "recessive")))%>%
+  ggplot(aes(x = Generation, y = `Average Frequency`, color = type, linetype = sail)) +
+  geom_line(linewidth = 1) +
+  scale_linetype_manual(values = c(4, 1)) +
+  scale_colour_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6")) +
+  labs(color = "Fitness Type",
+       linetype = "Presence of Editor",
+       title = "Fitness Benefit") +
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1.0),
+                     limits=c(0,1))+
+  theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), # face = "bold"),
+          strip.background = element_blank(), #element_rect(fill="white", size=0, color="white", alpha = 0),
+          panel.spacing = unit(8, "pt"))
+
+DAR_10_fc <- rbind(mutate(noSail_DAR_data, sail = "Editor Not Present"),
+      mutate(Sail_DAR_data, sail = "Editor Present")) %>%
+  filter(Allele == "E", introFreq == 0.1, Ecost %in% c(0.1)) %>%
+  mutate(fitness = ifelse(Ecost < 0, "10% Fitness Benefit",
+                          ifelse(Ecost > 0, "10% Fitness Cost", "Neutral Locus"))) %>%
+  mutate(fitness = factor(fitness,
+                          levels = c("10% Fitness Benefit", "Neutral Locus", "10% Fitness Cost")),
+         type = factor(type,
+                       levels = c("dominant", "additive", "recessive")))%>%
+  ggplot(aes(x = Generation, y = `Average Frequency`, color = type, linetype = sail)) +
+  geom_line(linewidth = 1) +
+  scale_linetype_manual(values = c(4, 1)) +
+  scale_colour_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6")) +
+  labs(color = "Fitness Type",
+       linetype = "Presence of Editor",
+       title = "Fitness Cost") +
+  scale_y_continuous(breaks=c(0,0.25, 0.5, 0.75, 1.0),
+                     limits=c(0,1))+
+  theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), # face = "bold"),
+          strip.background = element_blank(), #element_rect(fill="white", size=0, color="white", alpha = 0),
+          panel.spacing = unit(8, "pt"))
+```
+
+
+Combine Heatmaps & Single Runs
+
+```{r, fig.width = 7, fig.height=5}
+legend_height = 0.45
+
+top_panel <- ggarrange(DAR_10_fb + theme(legend.position = "none"), 
+                       DAR_10_fc + theme(legend.position = "none"), ncol = 2, 
+                       labels = c("A", "B"))
+
+top_panel <- ggarrange(top_panel, as_ggplot(get_legend(DAR_10_fb)), 
+                              ncol = 2, widths = c(4.3, 1.7))
+
+comb_hm <- ggarrange(
+  plot_carriers(Sail_dom_hm, "Dominant") +
+                       theme(legend.key.height = unit(legend_height, "in"),
+                             panel.spacing = unit(0,"cm"),
+                             legend.justification = "top"), 
+  plot_carriers(Sail_rec_hm, "Recessive") +
+    theme(legend.key.height = unit(legend_height, "in"),
+          panel.spacing = unit(0,"cm"),
+          legend.justification = "top"),
+  ncol = 2, common.legend = TRUE, legend = "right", labels = c("C", "D")
+  )
+
+DAR_LEGEND <- Sail_dom_hm %>%
+  ggplot(aes(x=Ecost, y=introFreq, fill = `Percent Carriers`)) + 
+  geom_tile() + 
+  theme_classic() + 
+  scale_fill_gradientn(colors = plasma_pal[999:1001], 
+                       breaks = c(0.998, 0.9985, 0.999, 0.9995, 1.0), 
+                       limits = c(0.998, 1.0),
+                       guide = guide_colorbar(draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(fill = "") +
+  theme(legend.key.height = unit(legend_height, "in"),
+        panel.spacing = unit(0,"cm"),
+        legend.justification = "top")
+
+DAR_LEGEND <- DAR_LEGEND %>%
+  get_legend() %>%
+  as_ggplot()
+
+comb_hm_extended <- ggarrange(comb_hm, DAR_LEGEND, 
+                              ncol = 2, widths = c(5.5, 0.6))
+comb_fig <- ggarrange(top_panel, comb_hm_extended, nrow = 2, heights = c(0.9, 1.1))
+
+x1 <- 0.762
+x2 <- 0.808 #0.83
+x3 <- 0.895 #0.885
+x4 <- 0.942
+
+y1 <- 0.033
+y2 <- 0.483
+y3 <- 0.499
+
+comb_fig_annotated <- comb_fig + 
+  annotate("rect", xmin = x1, xmax = x2, ymin = y2, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("rect", xmin = x3, xmax = x4, ymin = y1, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y2, yend = y1, 
+           color = "gray60", linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y3, yend = y3, 
+           color = "gray60", linewidth = box_border_size)
+
+comb_fig_annotated
+
+ggsave("figs-6_11/supp-fig_1-DAR_hm.svg", comb_fig_annotated, bg = "white",
+       width = 7, height = 5)
+ggsave("figs-6_11/supp-fig_1-DAR_hm.png", comb_fig_annotated, bg = "white",
+       width = 7, height = 5)
+
+print("Saved to supp-fig_1-DAR_hm")
+```
+
+### Supplemental Figure 2 - Dominant / Additive / Recessive vs. Germline / Somatic
+
+
+Build a framework that lets you graph homozygotes carrying/not carrying, heterozygotes carrying/not carrying, total allele frequency
+
+"allele frequency (of edit and editor), homozygotes with/without edit, homozygotes total, and heterozygotes"
+
+start with some very beefy functions !!
+```{r}
+clean_desex <- function(dataset) {
+  dataset <- dataset %>%
+    filter(Generation != "Generation") %>%
+    select(-X) %>%
+    separate(Run, c(NA, "iF", NA, "Ecost", "fit_type", "Run"), sep = "_") %>%
+    transform(Generation = as.numeric(Generation), Count = as.numeric(Count), 
+              iF = as.numeric(iF), Ecost = as.numeric(Ecost)) %>%
+    filter(iF != 0)
+  
+  columns <- colnames(dataset)
+  columns <- columns[! columns %in% c('Sex', 'Count')]
+  dataset %>% group_by(across(all_of(columns))) %>% summarise(Count = sum(Count))
+}
+
+get_a_h_data <- function(allele_data, genotype_data, total_data) {
+  all_freq <- allele_data %>%
+    transform(Allele_Count = Count) %>% select(-Count) %>%
+    merge(., total_data) %>%
+    mutate(allele_freq = Allele_Count / (2 * Count)) %>%
+    filter(Allele %in% c("E", "S")) %>% 
+    group_by(Generation, Allele, iF, Ecost, fit_type) %>%
+    summarize(allele_freq = mean(allele_freq)) %>%
+    mutate(Allele = ifelse(Allele == "E", "Edit", "Editor"),
+           Ecost = ifelse(fit_type == "additive", Ecost * 2, Ecost)) %>%
+    pivot_wider(names_from = Allele, values_from = allele_freq) %>%
+    select(Generation, iF, Ecost, fit_type, Edit, Editor)
+
+  phenotypes = c("wildtype", "heterozygote", "homozygote")
+
+  h_freq <- genotype_data %>%
+    mutate(phenotype = phenotypes[str_count(Genotype, "E") + 1],
+           carrier = ifelse(grepl("S", Genotype), "Carrier", "Not a Carrier")) %>%
+    group_by(Generation, iF, Ecost, fit_type, phenotype, carrier, Run) %>%
+    summarize(Gen_count = sum(Count)) %>%
+    merge(., total_data) %>%
+    mutate(gen_freq = Gen_count / Count,
+           Ecost = ifelse(fit_type == "additive", Ecost * 2, Ecost)) %>% select(-Gen_count) %>%
+    group_by(Generation, iF, Ecost, fit_type, phenotype, carrier) %>%
+    summarize(gen_freq = mean(gen_freq)) %>%
+    pivot_wider(names_from = carrier, values_from = gen_freq) %>%
+    mutate(total = Carrier + `Not a Carrier`) %>%
+    pivot_longer(cols = c(Carrier, `Not a Carrier`, total), names_to = "phenotype2", values_to = "Frequency") %>%
+    mutate(phenotype = paste(phenotype, phenotype2)) %>% select(-phenotype2) %>%
+    pivot_wider(names_from = phenotype, values_from = Frequency)
+
+  comb_freq <- merge(all_freq, h_freq) %>% 
+    select(-`wildtype Carrier`, -`wildtype Not a Carrier`, -`wildtype total`) %>%
+    pivot_longer(names_to = "type", values_to = "Frequency", 
+                 cols = c(-Generation, -iF, -Ecost, -fit_type))
+  
+  comb_freq
+}
+```
+
+get data using functions
+```{r}
+gmc_all <- read.csv("data/3-28/DAR_germlineMC_NEWallele.csv") %>% clean_desex()
+gmc_gen <- read.csv("data/3-28/DAR_germlineMC_genotype.csv") %>% clean_desex()
+gmc_tot <- read.csv("data/3-28/DAR_germlineMC_total.csv") %>% clean_desex()
+
+germline_mc <- get_a_h_data(gmc_all, gmc_gen, gmc_tot) %>%
+  mutate(modification = "Germline", mc = "MC")
+
+gn_all <- read.csv("data/3-28/DAR_germline_NEWallele.csv") %>% clean_desex()
+gn_gen <- read.csv("data/3-28/DAR_germline_genotype.csv") %>% clean_desex()
+gn_tot <- read.csv("data/3-28/DAR_germline_total.csv") %>% clean_desex()
+
+germline_no_mc <- get_a_h_data(gn_all, gn_gen, gn_tot) %>%
+  mutate(modification = "Germline", mc = "no MC")
+
+smc_all <- read.csv("data/3-28/DAR_somaticMC_NEWallele.csv") %>% clean_desex()
+smc_gen <- read.csv("data/3-28/DAR_somaticMC_genotype.csv") %>% clean_desex()
+smc_tot <- read.csv("data/3-28/DAR_somaticMC_total.csv") %>% clean_desex()
+
+somatic_mc <- get_a_h_data(smc_all, smc_gen, smc_tot) %>%
+  mutate(modification = "Germline and Somatic", mc = "MC")
+
+sn_all <- read.csv("data/3-28/DAR_somatic_NEWallele.csv") %>% clean_desex()
+sn_gen <- read.csv("data/3-28/DAR_somatic_genotype.csv") %>% clean_desex()
+sn_tot <- read.csv("data/3-28/DAR_somatic_total.csv") %>% clean_desex()
+
+somatic_no_mc <- get_a_h_data(sn_all, sn_gen, sn_tot) %>%
+  mutate(modification = "Germline and Somatic", mc = "no MC")
+```
+
+save to figures
+```{r, fig.height = 4.5, fig.width = 8}
+
+facet_text_size <- 11
+
+type_Dar_fig_noeditor <- rbind(
+  filter(somatic_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(somatic_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type))
+) %>%
+  filter(type != "Editor") %>%
+  mutate(fit_type = factor(paste(toupper(substr(fit_type, 1, 1)), substr(fit_type, 2, nchar(fit_type)), sep=""),
+                           levels = c("Dominant", "Additive", "Recessive"))) %>%
+  mutate(type = ifelse(grepl("Edi", type), type,
+                       ifelse(grepl("homo", type), "Homozygotes", "Heterozygotes")),
+         mc = ifelse(mc == "MC", "Maternal Carryover", "No Maternal Carryover")) %>%
+  ggplot(aes(x = Generation, y = Frequency, color = modification, linetype = mc)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(fit_type ~ type) +
+  theme_light() +
+  ylim(0, 1) +
+  scale_color_manual(values = c("#e32f6c", "#61D3E6")) +
+  labs(title = "(10%)",
+       color = "Modification",
+       linetype = "",
+       x = " ") +
+  theme(strip.text.x = element_text(size=facet_text_size, color = "black", hjust = 0), #, face = "bold"),
+        strip.text.y = element_text(size=facet_text_size, color = "black", hjust = 0),
+          strip.background = element_blank(),
+        axis.title.y = element_blank()) #,
+        #axis.title.x = element_blank())
+
+type_Dar_fig_onlyeditor <- rbind(
+  filter(somatic_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(somatic_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type)),
+  filter(germline_no_mc, iF == 0.1, Ecost == 0.1, !grepl("Carrier", type))
+) %>%
+  filter(type == "Editor") %>%
+  mutate(fit_type = factor(fit_type,
+                           levels = c("dominant", "additive", "recessive")),
+         mc = ifelse(mc == "MC", "Maternal Carryover", "No Maternal Carryover")) %>%
+  ggplot(aes(x = Generation, y = Frequency, color = modification, linetype = mc)) +
+  geom_line(linewidth = 0.8) +
+  facet_grid(fit_type ~ type) +
+  theme_light() +
+  ylim(0, 0.1) +
+  scale_color_manual(values = c("#e32f6c", "#61D3E6")) +
+  labs(title = "Fitness Cost",
+       linetype = "",
+       color = "Modification",
+       x = "") +
+  theme(strip.text.x = element_text(size=facet_text_size, color = "black", hjust = 0), #, face = "bold"),
+        strip.text.y = element_blank(),
+          strip.background = element_blank()) #,
+        #axis.title.x = element_blank())
+
+type_DAR_scaled <- ggarrange(type_Dar_fig_onlyeditor, type_Dar_fig_noeditor, ncol = 2,
+          common.legend = TRUE, legend = "right",
+          widths = c(1, 2.35)) +
+  annotate("text", size = 4, hjust = 0, x = 0.35, y = 0.03, label = "Generation")
+
+fig_height = 4.5
+fig_width = 8
+
+ggsave("figs-6_11/supp-fig_2-DAR_germline_somatic.svg", plot = type_DAR_scaled,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs-6_11/supp-fig_2-DAR_germline_somatic.png", plot = type_DAR_scaled,
+       height = fig_height, width = fig_width, bg = "white")
+type_DAR_scaled
+
+print("Saved to supp-fig_2-DAR_germline_somatic")
+```
+
+### Supplemental Figure 3 - Neutral Edit, non-neutral Editor
+
+Figure 2, but for SvI (costs on Wind)
+```{r}
+gmcwithSail_allele2 <- read.csv("data/1-11/SvI/introFreq_0.100_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  mutate(type = "with Sail")
+
+gmcwithSail_total_ds2 <- read.csv("data/1-11/SvI/introFreq_0.100_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  group_by(Generation, introFreq, Scost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "with Sail")
+
+gmcSail_data <- gmcwithSail_allele2 %>%
+  group_by(Generation, introFreq, Scost, Run, Allele, type) %>% # desex
+  summarise(Count = sum(Count)) %>%
+  merge(gmcwithSail_total_ds2) %>%
+  mutate(percent = Count/(totalPop*2)) %>%
+  group_by(Generation, introFreq, Scost, Allele, type) %>%
+  summarise(`Average Frequency` = mean(percent))
+```
+
+One panel sail AND wind - no SvI noSail comparison exists
+
+```{r}
+SvI_figure2 <- gmcSail_data %>%
+  filter(Allele %in% c("E", "S"), Scost %in% c(0.05, 0.0)) %>%
+  mutate(Allele = ifelse(Allele == "E", "Edit", "Editor"),
+         Fitness = factor(ifelse(Scost == 0, "Neutral Editor",
+                          ifelse(Scost < 0, "Beneficial Editor", "Maladaptive Editor")),
+                          levels = c("Beneficial Editor", "Neutral Editor", "Maladaptive Editor"))) %>%
+  ggplot(aes(x = Generation, y = `Average Frequency`, color = Fitness, linetype = Allele)) +
+  geom_line(size = 1) +
+  theme_light() +
+  labs(color = "") +
+  scale_linetype_manual(values = c(1, 4)) +
+  scale_colour_manual(values = c("#61D3E6", "#e32f6c")) + #"#6d2ac7", 
+  labs(title = "10% Introduction Frequency",
+       linetype = "Allele") +
+  guides(color = guide_legend(order = 1, title =), linetype = guide_legend(order = 2))
+
+SvI_figure2_spaced <- ggarrange(SvI_figure2 + theme(legend.position = "none"),
+          as_ggplot(get_legend(SvI_figure2)),
+          ncol = 2, widths = c(2, 1), labels = c("A", " "))
+```
+
+Two panels, homozygous frequency in the population vs. carriers, for cost on Sail (E)
+
+```{r, fig.height = 6.7, fig.width = 8}
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+SvI_O <- read.csv("data/1-11/SvI/last_gen_O_carrier.csv")
+
+SvI_E <- read.csv("data/1-11/SvI/last_gen_E_carrier.csv")
+
+SvI_homozygous <- SvI_O %>% filter(fitCost >= 0) %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(O_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_h = totalPop - O_count) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Homozygous` = mean(p_h/totalPop)) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Percent Homozygous`, color = `Percent Homozygous`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = "Percent Homozygous",
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Editor",
+       fill = "") +
+  #scale_x_continuous(breaks = c(0, 0.025, 0.05, 0.075, 0.1)) +
+  theme_light()
+
+SvI_carriers <- SvI_E %>% filter(fitCost >= 0) %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Carriers` = mean(p_c)) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Percent Carriers`, color = `Percent Carriers`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  scale_color_gradientn(colors = plasma_pal, guide = "none") +
+  #scale_fill_viridis(direction = -1,
+  #                   na.value = na_palette_value) +
+  labs(title = "Percent Carriers",
+       y = "Single Introduction Frequency",
+       x = "Fitness Cost on Editor",
+       fill = "") +
+  #scale_x_continuous(breaks = c(0, 0.025, 0.05, 0.075, 0.1)) +
+  theme_light()
+
+legend_height <- 0.55
+
+SvI_LEGEND_2 <- SvI_E %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  summarise(`Percent Carriers` = mean(p_c)) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Percent Carriers`)) + 
+  geom_tile() + 
+  theme_classic() + 
+  scale_fill_gradientn(colors = plasma_pal[999:1001], 
+                       breaks = c(0.998, 0.9985, 0.999, 0.9995, 1.0), 
+                       limits = c(0.998, 1.0),
+                       guide = guide_colorbar(draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(fill = "") +
+  theme(legend.key.height = unit(legend_height, "in"),
+        panel.spacing = unit(0,"cm"),
+        legend.justification = "top")
+
+SvI_LEGEND_2 <- SvI_LEGEND_2 %>%
+  get_legend() %>%
+  as_ggplot()
+
+SvI_figure <- ggarrange((SvI_homozygous + theme(legend.key.height = unit(legend_height, "in"),
+                                            panel.spacing = unit(0,"cm"),
+                                            legend.justification = "top")), 
+                    (SvI_carriers + theme(legend.key.height = unit(legend_height, "in"),
+                                          panel.spacing = unit(0,"cm"),
+                                            legend.justification = "top")),
+                    ncol = 2, labels = c("B", "C"),
+                    common.legend = T, legend = "right")
+
+SVI_extended <- ggarrange(SvI_figure, null_plot, SvI_LEGEND_2, 
+                              ncol = 3, widths = c(5, 0.2, 0.8))
+
+comb_fig <- ggarrange(SvI_figure2_spaced, SVI_extended, nrow = 2) #, heights = c(2, 2.5))
+
+x1 <- 0.79
+x2 <- 0.83
+x3 <- 0.885
+x4 <- 0.925
+
+y1 <- 0.04
+y2 <- 0.447
+y3 <- 0.462
+
+comb_fig_annotated <- comb_fig + 
+  annotate("rect", xmin = x1, xmax = x2, ymin = y2, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("rect", xmin = x3, xmax = x4, ymin = y1, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y2, yend = y1, 
+           color = "gray60", linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y3, yend = y3, 
+           color = "gray60", linewidth = box_border_size)
+
+comb_fig_annotated
+
+ggsave("figs-6_11/supp-fig_3-Modification_Neutral-Edit.svg", plot = comb_fig_annotated,
+       height = 6.7, width = 8)
+ggsave("figs-6_11/supp-fig_3-Modification_Neutral-Edit.png", plot = comb_fig_annotated,
+       height = 6.7, width = 8)
+
+print("Saved to supp-fig_3-Modification_Neutral-Edit")
+```
+
+### Figure 3 - Decreased Efficiency and Modification
+
+compare sail vs. no sail data
+
+```{r}
+#### no MC
+no_mc_total_LE <- read.csv("data/2-5/low_efficiencies_noMC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no MC")
+
+no_mc_allele_LE <- read.csv("data/2-5/low_efficiencies_noMC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no MC")
+
+#### MC
+mc_total_LE <- read.csv("data/2-5/low_efficiencies_MC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "MC")
+
+mc_allele_LE <- read.csv("data/2-5/low_efficiencies_MC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "MC")
+
+# no sail
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
+  transform(efficiency = introFreq, fitCost = Scost) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  filter(introFreq == 0.1, Scost %in% c(0.05, 0.00, -0.05)) %>%
+  transform(fitCost = Scost, efficiency = introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+alleles_big <- rbind(gmcnoSail_allele2, mc_allele_LE, no_mc_allele_LE)
+total_big <- rbind(gmcnoSail_total_ds2, mc_total_LE, no_mc_total_LE)
+
+LE_big <- merge(alleles_big, total_big) %>%
+  mutate(percent = Allele_Count / (2*totalPop))
+
+```
+
+Graphing time
+
+```{r, fig.height = 4, fig.width = 9}
+fig_height <- knitr::opts_current$get("fig.height")
+fig_width <- knitr::opts_current$get("fig.width")
+
+fig_height = 4
+fig_width = 9
+
+fig <- LE_big %>%
+  mutate(type = factor(type, 
+                       levels = c("MC", "no MC", "no Editor"))) %>%
+  filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
+  mutate(fitness = factor(ifelse(fitCost == 0, "Neutral",
+                                 ifelse(fitCost < 0, "Fitness Benefit (5%)", "Fitness Cost (5%)")),
+                          levels = c("Fitness Benefit (5%)", "Neutral", "Fitness Cost (5%)"))) %>%
+  group_by(Generation, efficiency, fitness, type) %>%
+  summarize(avg_percent = mean(percent)) %>%
+  filter(efficiency %in% c(2, 1, 0.5, 0.15)) %>%
+  mutate(efficiency = factor(ifelse(efficiency == 2, "no editor", as.character(efficiency)),
+                             #levels = c("0.02", "0.15", "0.5", "1", "no editor"))) %>%
+                             levels = c("1", "0.5", "0.15", "no editor"))) %>%
+  ggplot(aes(x = Generation, y = avg_percent, group = interaction(efficiency, type), 
+             color = efficiency, linetype = type)) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(values = #c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154", "black")) +
+                       #c("#440154", "#61D3E6", "#e32f6c", "#6d2ac7", "black")) +
+                       c("#6d2ac7", "#46AB79", "#e32f6c", "black", "#61D3E6")) +
+  scale_linetype_manual(values = c(1, 4, 5)) +
+  facet_wrap(~fitness) +
+  labs(color = "Editor Efficiency",
+       linetype = "System",
+       y = "Average Edited Allele Frequency") +
+  theme_light()
+
+fig2 <- fig + expand_limits(x = 0, y = 0) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 52.5)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1.05)) +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), #, face = "bold"),
+          strip.background = element_blank(),
+          legend.key.width = unit(2, "line"))
+
+fig2_annot <- ggarrange(fig2) + annotate("rect", 
+           xmin = 0.85, 
+           xmax = 0.97, 
+           ymin = 0.2, 
+           ymax = 0.25,
+           color = "white", fill = "white", linewidth = 0)
+fig2_annot
+
+ggsave("figs-6_11/fig_3-decreased_efficiency-modification.svg", plot = fig2_annot,
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/fig_3-decreased_efficiency-modification.png", plot = fig2_annot,
+       height = fig_height, width = fig_width)
+
+print("Saved to fig_3-decreased_efficiency-modification")
+```
+
+
+### Supplemental Figure 4 - Decreased Efficiency, Increased Introduction Frequency, and Modification
+
+compare sail vs. no sail data - 20% intro
+```{r}
+#### no MC
+no_mc_total_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_noMC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no MC")
+
+no_mc_allele_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_noMC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no MC")
+
+#### MC
+mc_total_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_MC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "MC")
+
+mc_allele_LE_i20 <- read.csv("data/2-23/low_efficiencies_int_20_MC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "MC")
+
+# no sail
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(introFreq == 0.2, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
+  transform(efficiency = introFreq, fitCost = Scost) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  filter(introFreq == 0.2, Scost %in% c(0.05, 0.00, -0.05)) %>%
+  transform(fitCost = Scost, efficiency = introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+alleles_big <- rbind(gmcnoSail_allele2, mc_allele_LE_i20, no_mc_allele_LE_i20)
+total_big <- rbind(gmcnoSail_total_ds2, mc_total_LE_i20, no_mc_total_LE_i20)
+
+LE_big_i20 <- merge(alleles_big, total_big) %>%
+  mutate(percent = Allele_Count / (2*totalPop))
+
+```
+
+compare sail vs. no sail data - 40% intro
+```{r}
+#### no MC
+no_mc_total_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_noMC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no MC")
+
+no_mc_allele_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_noMC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no MC")
+
+#### MC
+mc_total_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_MC_smallRuns_total.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "MC")
+
+mc_allele_LE_i40 <- read.csv("data/2-23/low_efficiencies_int_40_MC_smallRuns_NEWallele.csv") %>%
+  clean() %>%
+  transform(efficiency = fitCost, fitCost = introFreq) %>% select(-introFreq) %>%
+  filter(Allele == "E", fitCost %in% c(-0.05, 0, 0.05)) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "MC")
+
+# no sail
+gmcnoSail_allele2 <- read.csv("data/1-11/noSail_modification_MC_NEWallele.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost) %>%
+  filter(introFreq == 0.4, Scost %in% c(0.05, 0.00, -0.05), Allele == "E") %>%
+  transform(efficiency = introFreq, fitCost = Scost) %>%
+  group_by(Generation, efficiency, fitCost, Allele, Run) %>%
+  summarise(Allele_Count = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+gmcnoSail_total_ds2 <- read.csv("data/1-11/noSail_modification_MC_total.csv") %>%
+  clean() %>%
+  transform(Scost = introFreq, introFreq = fitCost) %>% select(-fitCost)%>%
+  filter(introFreq == 0.4, Scost %in% c(0.05, 0.00, -0.05)) %>%
+  transform(fitCost = Scost, efficiency = introFreq) %>%
+  group_by(Generation, efficiency, fitCost, Run) %>%
+  summarise(totalPop = sum(Count)) %>%
+  mutate(type = "no Editor",
+         efficiency = 2)
+
+alleles_big <- rbind(gmcnoSail_allele2, mc_allele_LE_i40, no_mc_allele_LE_i40)
+total_big <- rbind(gmcnoSail_total_ds2, mc_total_LE_i40, no_mc_total_LE_i40)
+
+LE_big_i40 <- merge(alleles_big, total_big) %>%
+  mutate(percent = Allele_Count / (2*totalPop))
+
+```
+
+Just fitness costs + higher introduction frequencies
+```{r}
+percent_10 <- LE_big %>% filter(fitCost > 0.03, Allele == "E") %>% mutate(intro = "10% introduction")
+percent_20 <- LE_big_i20 %>% filter(fitCost > 0) %>% mutate(intro = "20% introduction")
+percent_40 <- LE_big_i40 %>% filter(fitCost > 0) %>% mutate(intro = "40% introduction")
+
+fig <- rbind(percent_10, percent_20, percent_40) %>%
+  mutate(type = factor(type, 
+                       levels = c("MC", "no MC", "no Editor"))) %>%
+  mutate(fitness = factor(ifelse(fitCost == 0, "Neutral",
+                                 ifelse(fitCost < 0, "Fitness Benefit (5%)", "Fitness Cost (5%)")),
+                          levels = c("Fitness Benefit (5%)", "Neutral", "Fitness Cost (5%)"))) %>%
+  group_by(Generation, efficiency, fitness, type, intro) %>%
+  summarize(avg_percent = mean(percent)) %>%
+  filter(efficiency %in% c(2, 1, 0.5, 0.15)) %>%
+  mutate(efficiency = factor(ifelse(efficiency == 2, "no editor", as.character(efficiency)),
+                             #levels = c("0.02", "0.15", "0.5", "1", "no editor"))) %>%
+                             levels = c("1", "0.5", "0.15", "no editor"))) %>%
+  ggplot(aes(x = Generation, y = avg_percent, group = interaction(efficiency, type), 
+             color = efficiency, linetype = type)) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(values = #c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154", "black")) +
+                       #c("#440154", "#61D3E6", "#e32f6c", "#6d2ac7", "black")) +
+                       c("#6d2ac7", "#46AB79", "#e32f6c", "black", "#61D3E6")) +
+  scale_linetype_manual(values = c(1, 4, 5)) +
+  facet_wrap(~intro) +
+  labs(color = "Editor Efficiency",
+       linetype = "System",
+       y = "Average Edited Allele Frequency") +
+  theme_light()
+  
+fig_fc_3i <- fig + expand_limits(x = 0, y = 0) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 52.5)) + 
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1.05)) +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), #, face = "bold"),
+          strip.background = element_blank(),
+          legend.key.width = unit(2, "line"))
+```
+
+Graph!
+
+```{r, fig.width = 7, fig.height = 3.5}
+fig_fc_3i_annotated <- ggarrange(fig_fc_3i) +
+  annotate("rect", 
+           xmin = 0.82, 
+           xmax = 0.97, 
+           ymin = 0.17, 
+           ymax = 0.23,
+           color = "white", fill = "white", linewidth = 0)
+
+fig_fc_3i_annotated
+
+fig_height = 3.5
+fig_width = 7
+
+ggsave("figs-6_11/supp-fig_4-high_iF-LE_modification.svg", plot = fig_fc_3i_annotated,
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/supp-fig_4-high_iF-LE_modification.png", plot = fig_fc_3i_annotated,
+       height = fig_height, width = fig_width)
+
+print("Saved to supp-fig_4-high_iF-LE_modification")
+```
+
+
+
+
+### Figure 4 - Linkage, costs on edit
+
+Get linked vs. Unlinked data, for generation 50
+
+```{r, fig.height=3.6, fig.width=8.25}
+
+fig_height = 3.6
+fig_width = 8.25
+
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+rd0_E <- read.csv("data/2-5/rd_0-clvg_0.5_last_gen_E.csv", 
+                header = FALSE,
+                col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
+  mutate(rd = "linked")
+rd50_E <- read.csv("data/2-5/rd_50-clvg_0.5_last_gen_E.csv", 
+                header = FALSE,
+                col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
+  mutate(rd = "unlinked")
+
+rd0_hm <- rd0_E %>%
+  group_by(fitCost, run, introFreq) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(percent = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(percent) * 100) %>%
+  #summarise(`Percent of sims going to fixation` = n()) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       name = "Percent Carriers",
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(title = "Linked",
+       x = "Fitness Cost on Edit",
+       y = "Single Introduction Frequency") +
+  theme_light()
+
+rd50_hm <- rd50_E %>%
+  group_by(fitCost, run, introFreq) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(percent = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(percent) * 100) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       name = "Percent Carriers",
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(title = "Unlinked",
+       x = "Fitness Cost on Edit",
+       y = "Single Introduction Frequency") +
+  theme_light()
+
+legend_height <- 0.575
+
+figure1 <- ggarrange((rd0_hm + theme(legend.key.height = unit(legend_height, "in"),
+                                            panel.spacing = unit(0,"cm"))), 
+                    (rd50_hm + theme(legend.key.height = unit(legend_height, "in"),
+                                          panel.spacing = unit(0,"cm"))),
+                    ncol = 2, labels = c("A", "B"),
+                    common.legend = T, legend = "right")
+
+### ADD IN PINK LEGEND
+
+EvI_LEGEND_2 <- rd50_E %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(p_c) * 100) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() + 
+  labs(title = "Unlinked",
+       x = "Fitness Cost on Edit",
+       y = "Single Introduction Frequency",
+       fill = "") +
+  theme_light() +
+  scale_fill_gradientn(colors = plasma_pal[999:1001], 
+                       breaks = c(99.8, 99.85, 99.9, 99.95, 100), 
+                       limits = c(99.8, 100),
+                       guide = guide_colorbar(draw.ulim = FALSE, draw.llim = FALSE)) +
+  theme(legend.key.height = unit(legend_height, "in"),
+        panel.spacing = unit(0,"cm"))
+
+EvI_LEGEND_2 <- EvI_LEGEND_2 %>%
+  get_legend() %>%
+  as_ggplot()
+
+comb_fig <- ggarrange(figure1, EvI_LEGEND_2, ncol = 2, widths = c(8, 1))
+
+### ADD ANNOTATION
+
+#left_x <- 0.815
+#leftmid_x <- 0.83
+#rightmid_x <- 0.882
+#right_x <- 0.897
+
+#low_y <- 0.07
+#mid_y <- 0.855
+#high_y <- 0.865
+
+x1 <- 0.775
+x2 <- 0.815
+x3 <- 0.897
+x4 <- 0.935
+
+y1 <- 0.06
+y2 <- 0.855
+y3 <- 0.875
+
+comb_fig_annotated <- comb_fig + 
+  annotate("rect", xmin = x1, xmax = x2, ymin = y2, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("rect", xmin = x3, xmax = x4, ymin = y1, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y2, yend = y1, 
+           color = "gray60", linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y3, yend = y3, 
+           color = "gray60", linewidth = box_border_size)
+
+comb_fig_annotated
+
+ggsave("figs-6_11/fig_4_linkage-edit_costs.svg", plot = comb_fig_annotated,
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/fig_4_linkage-edit_costs.png", plot = comb_fig_annotated,
+       height = fig_height, width = fig_width)
+
+print("Saved to fig_4_linkage-edit_costs")
+```
+
+
+
+### Supplemental Figure 5 - Linkage, costs on editor
+
+Get linked vs. Unlinked data, with fitness costs on S (the Wind), Generation 50
+
+```{r, fig.height = 3.6, fig.width=8.25}
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+### E's for amount E's ###
+rd0_E <- read.csv("data/2-5/svi_rd_0-clvg_0.5_last_gen_E.csv", 
+                header = FALSE,
+                col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
+  mutate(rd = "linked")
+rd50_E <- read.csv("data/2-5/svi_rd_50-clvg_0.5_last_gen_E.csv", 
+                header = FALSE,
+                col.names = c("Count","Sex","fitCost","run","introFreq","totalPop")) %>%
+  mutate(rd = "unlinked")
+
+rd0_hm <- rd0_E %>%
+  group_by(fitCost, run, introFreq) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(percent = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(percent) * 100) %>%
+  #summarise(`Percent of sims going to fixation` = n()) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       name = "Percent Carriers",
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(title = "Linked",
+       x = "Fitness Cost on Editor",
+       y = "Single Introduction Frequency") +
+  theme_light()
+
+rd50_hm <- rd50_E %>%
+  group_by(fitCost, run, introFreq) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(percent = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(percent) * 100) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() +
+  scale_fill_gradientn(colors = plasma_pal,
+                       name = "Percent Carriers",
+                       guide = guide_colorbar(label.position = "left", draw.ulim = FALSE, draw.llim = FALSE)) +
+  labs(title = "Unlinked",
+       x = "Fitness Cost on Editor",
+       y = "Single Introduction Frequency") +
+  theme_light()
+
+legend_height <- 0.575
+
+figure1 <- ggarrange((rd0_hm + theme(legend.key.height = unit(legend_height, "in"),
+                                            panel.spacing = unit(0,"cm"))), 
+                    (rd50_hm + theme(legend.key.height = unit(legend_height, "in"),
+                                          panel.spacing = unit(0,"cm"))),
+                    ncol = 2, labels = c("A", "B"),
+                    common.legend = T, legend = "right")
+
+### ADD IN PINK LEGEND
+EvI_LEGEND_2 <- rd50_E %>%
+  group_by(introFreq, fitCost, run) %>%
+  summarise(E_count = sum(Count),
+            totalPop = sum(totalPop)) %>%
+  mutate(p_c = E_count / totalPop) %>%
+  group_by(introFreq, fitCost) %>%
+  mutate(`Avg Percent` = mean(p_c) * 100) %>%
+  ggplot(aes(x=2*fitCost, y=introFreq, fill = `Avg Percent`)) +
+  geom_tile() + 
+  labs(title = "Unlinked",
+       x = "Fitness Cost on Edit",
+       y = "Single Introduction Frequency",
+       fill = "") +
+  theme_light() +
+  scale_fill_gradientn(colors = plasma_pal[999:1001], 
+                       breaks = c(99.8, 99.85, 99.9, 99.95, 100), 
+                       limits = c(99.8, 100),
+                       guide = guide_colorbar(draw.ulim = FALSE, draw.llim = FALSE)) +
+  theme(legend.key.height = unit(legend_height, "in"),
+        panel.spacing = unit(0,"cm"))
+
+EvI_LEGEND_2 <- EvI_LEGEND_2 %>%
+  get_legend() %>%
+  as_ggplot()
+
+comb_fig <- ggarrange(figure1, EvI_LEGEND_2, ncol = 2, widths = c(8, 1))
+
+### ADD ANNOTATION
+
+x1 <- 0.775
+x2 <- 0.815
+x3 <- 0.897
+x4 <- 0.935
+
+y1 <- 0.06
+y2 <- 0.855
+y3 <- 0.875
+
+figure_annotated <- comb_fig + 
+  annotate("rect", xmin = x1, xmax = x2, ymin = y2, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("rect", xmin = x3, xmax = x4, ymin = y1, ymax = y3, 
+           fill = rgb(0, 0, 0, alpha = 0), color = 'gray60', linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y2, yend = y1, 
+           color = "gray60", linewidth = box_border_size) +
+  annotate("segment", x = x2, xend = x3, y = y3, yend = y3, 
+           color = "gray60", linewidth = box_border_size)
+figure_annotated
+
+ggsave("figs-6_11/supp-fig_5_WvI_linkage.svg", plot = figure_annotated,
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/supp-fig_5_WvI_linkage.png", plot = figure_annotated,
+       height = fig_height, width = fig_width)
+
+print("Saved to supp-fig_5_WvI_linkage")
+```
+
+
+
+
+### Figure 5 - Suppression with a single release
+
+General, fsRIDL vs. XY / ZW panel:
+
+```{r}
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "tpc")
+
+tpc2_delta <- total_pc2 %>% filter(iF %in% c("0.1")) %>%
+  filter(type %in% c("XY", "ZW", "fsRIDL")) %>%
+  pivot_wider(names_from = Sex, values_from = Count) %>%
+  mutate(delta = Male - Female,
+         Count = Male + Female) %>%
+  group_by(Generation, iF, gap, repeats, type) %>%
+  summarize(delta = mean(delta),
+            Count = mean(Count))
+
+panel1.2.2 <- tpc2_delta %>% filter(repeats == 1) %>% filter(iF == 0.1) %>%
+  ggplot(aes(x = Generation, y = Count, color = type)) +
+  geom_line(size = 1.12, aes(linetype = "Population Size")) +
+  geom_line(size = 1.12, aes(y = (delta + 1500)/0.4, linetype = "Males - Females")) +
+  scale_color_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154")) +
+  labs(title = "Single Release, multiple systems",
+       color = "System",
+       y = "Average Population Size") +
+  ylim(0, NA) +
+  scale_linetype_manual(values = c(1, 4),
+                        name = "LINETYPE",
+                        limits = \(x) c(x[2], x[1])) +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000),
+                     limits=c(NA,NA),
+                     sec.axis = sec_axis(~ . * 0.4 - 1500, name = "Average Number of Males - Females"))+
+  theme_light() +
+  theme(legend.key.width = unit(2, "line"))
+
+leg2 <- gtable_filter(ggplot_gtable(ggplot_build(panel1.2.2 +
+                                                   guides(color = FALSE) +
+                                                   theme(legend.title=element_blank()))), "guide-box") 
+no_legend_plot <- panel1.2.2 + guides(linetype = FALSE) #theme(legend.position = "none")
+
+edit_p1.2 <- no_legend_plot + annotation_custom(grob = leg2, xmin = 30, xmax = 50, ymin = 0, ymax = 2000)
+```
+
+Data for other 5 panels:
+
+```{r}
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  filter(iF == 0.1) %>%
+  mutate(type2 = "tpc")
+
+allele2 <- read.csv("data/3-5/full_five_noMC_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count) / 2) %>%
+  filter(iF == 0.1) %>%
+  group_by(Generation, iF, gap, repeats, type, Run, Allele) %>%
+  summarize(Count = sum(Count)) %>%
+  group_by(Generation, iF, gap, repeats, type, Allele)
+
+amount_E_r1_iF202 <- allele2 %>% filter(Allele == "E", repeats == 1) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+amount_S_r1_iF202 <- allele2 %>% filter(Allele == "S", repeats == 1) %>% 
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+amount_Y_r1_iF202 <- allele2 %>% filter(Allele == "Y", repeats == 1) %>% 
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+amount_W_r1_iF202 <- allele2 %>% filter(Allele == "W", repeats == 1) %>% 
+  filter(grepl("W", type)) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+amount_Z_r1_iF202 <- allele2 %>% filter(Allele == "Z", repeats == 1) %>%
+  filter(grepl("Z", type)) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+amount_R_r1_iF202 <- allele2 %>% filter(Allele == "R", repeats == 1) %>% 
+  filter(grepl("R", type)) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count)
+
+tpc_condensed <- total_pc2 %>%
+  filter(repeats == 1) %>%
+  group_by(Generation, iF, gap, repeats, type, Run) %>%
+  summarize(Count = sum(Count)) %>% #desexed
+  group_by(Generation, iF, gap, repeats, type) %>%
+  summarize(Count = mean(Count)) %>%
+  select(type, Generation, Count) %>%
+  mutate(type2 = "Total Population")
+
+total_pop_r1_iF202 <- allele2 %>% filter(Allele == "W", repeats == 1) %>%
+  summarize(Count = 10000) %>%
+  ungroup() %>% select(type, Generation, Count)
+
+tpc_condensed <- rbind(tpc_condensed, 
+      mutate(amount_E_r1_iF202, type2 = "Edit"),
+      mutate(amount_S_r1_iF202, type2 = "Editor"),
+      mutate(amount_Y_r1_iF202, type2 = "Y or W"),
+      mutate(amount_W_r1_iF202, type2 = "Y or W"),
+      mutate(amount_R_r1_iF202, type2 = "Editor"),
+      mutate(total_pop_r1_iF202, type2 = "Carrying Capacity"))
+
+tpc_condensed$type2 <-
+  factor(tpc_condensed$type2,
+         levels = c("Carrying Capacity", "Edit", "Editor", "Y or W", "Z", "Total Population"))
+
+```
+
+All five other panels
+
+```{r}
+title_text_size <- 10
+
+p1 <- tpc_condensed %>% filter(type == "XY") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    #values = c("slategray", "#e32f6c", "#61D3E6", "#6d2ac7", "black"),
+    values = c("slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "XY, release XX males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000),
+                     limits=c(0,NA)) +
+  theme_light() +
+  theme(plot.title = element_text(size=title_text_size))
+  
+p2 <- tpc_condensed %>% filter(type == "ZW") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "ZW, release ZZ males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000)) +
+  theme_light() +
+  theme(plot.title = element_text(size=title_text_size))
+
+p3 <- tpc_condensed %>% filter(type == "XYnoBump") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "XY, release XY males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000)) +
+  theme_light() +
+  theme(plot.title = element_text(size=title_text_size))
+  
+p4 <- tpc_condensed %>% filter(type == "ZWviableNoBump") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "ZW, WW-viable, release ZZ males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000)) +
+  theme_light() +
+  theme(plot.title = element_text(size=title_text_size))
+
+p5 <- tpc_condensed %>% filter(type == "ZWviableBump") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "ZW, WW-viable, release ZW males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000, 12500)) +
+  theme_light() +
+  theme(plot.title = element_text(size=title_text_size))
+```
+
+Combine 
+
+```{r, fig.height = 8.5, fig.width = 8.5}
+
+fig_height = knitr::opts_current$get("fig.height")
+fig_width = knitr::opts_current$get("fig.width")
+
+top_left <- ggarrange(p1 + theme(legend.position = "none"),
+                      p2 + theme(legend.position = "none"),
+                      nrow = 2, labels = c("B", "C"))
+
+top_panel <- ggarrange(edit_p1.2 + theme(legend.position = "top"), null_plot, top_left, 
+                       ncol = 3, widths = c(1.6, 0.15, 1), labels = c("A", "", ""))
+
+bottom_panel <- ggarrange(p3, 
+                          p4, 
+                          p5, 
+                          ncol = 3, common.legend = TRUE, legend = "bottom",
+                          labels = c("D", "E", "F"))
+  
+fig_singles <- ggarrange(top_panel, null_plot, bottom_panel, 
+          nrow = 3, heights = c(3, 0.3, 1.8)) +
+  annotate("segment", x = 0.6, xend = 0.635, y = 0.805, yend = 0.95,
+           colour = "#e32f6c", linewidth = 0.9, arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
+  annotate("segment", x = 0.6, xend = 0.635, y = 0.79, yend = 0.71,
+           colour = "#61D3E6", linewidth = 0.9, arrow = arrow(length = unit(0.1, "inches"), type = "closed")) +
+  annotate("segment", x = 0.575, xend = 0.6, y = 0.805, yend = 0.805, color = "#e32f6c", linewidth = 1) +
+  annotate("segment", x = 0.575, xend = 0.6, y = 0.79, yend = 0.79, color = "#61D3E6", linewidth = 1)
+  
+fig_singles
+
+ggsave("figs-6_11/fig_5-single_release-sex_systems.svg", plot = fig_singles, bg = "white",
+       height = fig_height, width = fig_width)
+ggsave("figs-6_11/fig_5-single_release-sex_systems.png", plot = fig_singles, bg = "white",
+       height = fig_height, width = fig_width)
+
+print("Saved to fig_5-single_release-sex_systems")
+```
+
+
+### Supplemental Figure 6 - Editor segregates to Males
+
+```{r, fig.height=4.7, fig.width=6.5}
+fig_height <- knitr::opts_current$get("fig.height")
+fig_width <- knitr::opts_current$get("fig.width")
+
+stotal_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "tpc")
+
+sallele2 <- read.csv("data/3-5/full_five_noMC_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  group_by(Generation, iF, gap, repeats, type, Sex, Allele)
+
+samount_E_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "E", repeats == 1, iF == 0.2) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+samount_S_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "S", repeats == 1, iF == 0.2) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+samount_Y_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "Y", repeats == 1, iF == 0.2) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+samount_W_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "W", repeats == 1, iF == 0.2) %>% 
+  filter(grepl("W", type)) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+samount_Z_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "Z", repeats == 1, iF == 0.2) %>% 
+  filter(grepl("Z", type)) %>%
+  summarize(Count = mean(Count)) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+
+stpc_condensed <- stotal_pc2 %>%
+  filter(repeats == 1, iF == 0.2) %>%
+  group_by(Generation, iF, gap, repeats, Sex, type) %>%
+  summarize(Count = mean(Count)) %>%
+  select(type, Generation, Count) %>%
+  mutate(type2 = "Total Population") %>% ungroup() %>%
+   select(type, Generation, Count, Sex, type2)
+
+stotal_pop_r1_iF202 <- sallele2 %>% 
+  filter(Allele == "E", repeats == 1, iF == 0.2) %>%
+  summarize(Count = 10000) %>%
+  ungroup() %>% select(type, Generation, Count, Sex)
+
+stpc_condensed <- rbind(stpc_condensed, 
+      mutate(samount_E_r1_iF202, type2 = "Edit", Count = Count/2),
+      mutate(samount_S_r1_iF202, type2 = "Editor", Count = Count/2),
+      #mutate(samount_Z_r1_iF202, type2 = "Z"),
+      mutate(samount_Y_r1_iF202, type2 = "Y or W", Count = Count/2),
+      mutate(samount_W_r1_iF202, type2 = "Y or W", Count = Count/2))
+
+stpc_condensed$type2 <-
+  factor(stpc_condensed$type2,
+         levels = c("Edit", "Editor", "Y or W", "Z", "Total Population"))
+
+## Plotting time bb
+p1 <- stpc_condensed %>% filter(type == "XY") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2)) + #, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("#e32f6c", "#61D3E6", "#6d2ac7", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(1, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "XY") + #"XY, release XX males") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000),
+                     limits=c(0,NA)) +
+  facet_wrap(~Sex) +
+  theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0, face = "bold"),
+          strip.background = element_blank(), #element_rect(fill="white", size=0, color="white", alpha = 0),
+          panel.spacing = unit(8, "pt"))
+  
+p2 <- stpc_condensed %>% filter(type == "ZWviableNoBump") %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, linetype = type2)) +
+  geom_line(size = 1.12) +
+  scale_color_manual(
+    values = c("#e32f6c", "#61D3E6", "#6d2ac7", "black"),
+    name = "Genotype"
+  ) + scale_linetype_manual(values = c(1, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "ZW, release ZZ males - WW nonviable") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000)) +
+  facet_wrap(~Sex) +
+  theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0, face = "bold"),
+          strip.background = element_blank(), #element_rect(fill="white", size=0, color="white", alpha = 0),
+          panel.spacing = unit(8, "pt"))
+  
+top_panel <- ggarrange(p1, p2, nrow = 2,
+          common.legend = TRUE, legend = "right",
+          labels = c("A", "B"))
+top_panel
+
+ggsave("figs-6_11/supp-fig_6-male_v_female-allele_freq.svg", plot = top_panel,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs-6_11/supp-fig_6-male_v_female-allele_freq.png", plot = top_panel,
+       height = fig_height, width = fig_width, bg = "white")
+
+print("Saved to supp-fig_6-male_v_female-allele_freq")
+```
+
+
+
+### Supplemental Figure 7 - Z-linked Editor
+
+Get Multiple Releases Info
+
+```{r}
+zw_gen_noMC_a <- read.csv("data/2-23/ais_51releases_noMC_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  filter(iF %in% c(0.05, 0.1)) %>%
+  filter(Allele %in% c("Z*", "S")) %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no MC") %>%
+  select(-efficiency, -rd) %>%
+  filter(type == "ZW") %>% mutate(type = "ZW no MC")
+
+zw_gen_noMC_tp <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  filter(iF %in% c(0.05, 0.1)) %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no MC") %>%
+  select(-efficiency, -rd) %>%
+  filter(type == "ZW") %>% mutate(type = "ZW no MC")
+
+zwwind_gen_noMC_a <- read.csv("data/2-23/ais_ZW_ZWind_noMC_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  filter(iF %in% c(0.05, 0.1)) %>%
+  filter(Allele %in% c("Z*", "S")) %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no MC") %>%
+  select(-efficiency, -rd)
+
+zwwind_gen_noMC_tp <- read.csv("data/2-23/ais_ZW_ZWind_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  filter(iF %in% c(0.05, 0.1)) %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no MC") %>%
+  select(-efficiency, -rd)
+
+zwind_a <- rbind(zwwind_gen_noMC_a, zw_gen_noMC_a) %>%
+  group_by(Generation, iF, repeats, type, Run, Allele) %>%
+  summarize(Count = sum(Count)) %>%
+  group_by(Generation, iF, repeats, Allele) %>%
+  mutate(Count = ifelse(Generation == 50, Count /2, (Count - (as.numeric(iF) * 20000)) / 2))
+zwind_tp <- rbind(zwwind_gen_noMC_tp, zw_gen_noMC_tp)
+
+amount_Estar <- zwind_a %>% filter(Allele == "Z*") %>%
+  select(type, Generation, Count, Run)
+amount_S <- zwind_a %>% filter(Allele == "S") %>%
+  select(type, Generation, Count, Run)
+
+tpc_condensed <- zwind_tp %>%
+  group_by(Generation, iF, repeats, type, type2, Run) %>%
+  summarize(Count = sum(Count)) %>% #desexed
+  select(type, Generation, Count, Run) %>%
+  mutate(type2 = ifelse(type == "ZWZwind", "Total Population - Z-linked", "Total Population - Autosomal"))
+
+tpc_condensed <- rbind(tpc_condensed, 
+      mutate(amount_Estar, type2 = "Z-linked Editor"),
+      mutate(amount_S, type2 = "Autosomal Editor"))
+
+plot_1.9 <- tpc_condensed %>%
+  mutate(iF_str = factor(ifelse(iF == "0.1", "10% Introduction", "5% Introduction"),
+                     levels = c("5% Introduction", "10% Introduction")),
+         type2 = factor(type2,
+                       levels = c("Z-linked Editor", "Total Population - Z-linked",
+                                  "Autosomal Editor", "Total Population - Autosomal"))) %>%
+  ggplot(aes(x = Generation, y = Count, color = type2, group = paste(type2, Run))) +
+  geom_line(size = 0.5) + #1.12) +
+  facet_wrap(~iF_str) +
+  scale_color_manual(
+    values = c("#6d2ac7","#440154", "#e32f6c", "#61D3E6"),
+      #c("#e32f6c", "#6d2ac7", "slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "Continuous Releases",
+       y = "Count") +
+  scale_y_continuous(breaks=c(0, 2500, 5000, 7500, 10000, 12500)) +
+  theme_light() + 
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), #, face = "bold"),
+          strip.background = element_blank())
+
+plot_1.10 <- tpc_condensed %>% #filter(type == "ZWviableBump") %>%
+  mutate(iF_str = factor(ifelse(iF == "0.1", "10% Introduction", "5% Introduction"),
+                     levels = c("5% Introduction", "10% Introduction")),
+         type2 = factor(type2,
+                       levels = c("Z-linked Editor", "Total Population - Z-linked",
+                                  "Autosomal Editor", "Total Population - Autosomal"))) %>%
+  group_by(iF_str, type2, Generation) %>%
+  summarize(Count = mean(Count)) %>%
+  ggplot(aes(x = Generation, y = Count, color = type2)) + #, group = paste(type2, Run))) +
+  geom_line(size = 1.12) +
+  facet_wrap(~iF_str) +
+  scale_color_manual(
+    values = c("#6d2ac7","#440154", "#e32f6c", "#61D3E6"),
+      #c("#e32f6c", "#6d2ac7", "slategray", "#117733", "#c77cff", "#f2b822", "black"),
+    name = " "
+  ) + scale_linetype_manual(values = c(2, 1, 1, 1, 1),
+                            guide = 'none') +
+  labs(title = "Continuous Releases",
+       y = "Average Count") +
+  scale_y_continuous(breaks=c(0, 2500, 5000, 7500, 10000, 12500)) +
+  theme_light() + 
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), #, face = "bold"),
+          strip.background = element_blank())
+```
+
+Get and Graph compared to Single Release
+
+```{r, fig.height=6, fig.width=8}
+total_pc2_noMC <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no_MC") %>%
+  select(-gap)
+
+ZW_noMC_singleRel <- read.csv("data/3-11/ZW_Zwind_singleRelease_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "no_MC")%>%
+  select(-efficiency, -rd)
+
+plot2 <- filter(total_pc2_noMC, type == "ZW") %>%
+  rbind(., ZW_noMC_singleRel) %>%
+  filter(repeats == 1) %>% filter(iF == 0.1) %>%
+  mutate(type = ifelse(type == "ZW", "Autosomal Editor", "Z-linked Editor")) %>%
+  group_by(Generation, iF, repeats, type, Run, type2) %>%
+  summarize(Count = sum(Count)) %>% #desexed
+  group_by(Generation, iF, repeats, type, type2) %>%
+  summarize(Count = mean(Count)) %>%
+  ggplot(aes(x=Generation, y = Count, 
+             group = interaction(type, iF), color = type)) +
+  geom_line(size = 1.12) + 
+  scale_color_manual(values = c("#e32f6c", "#6d2ac7", "#61D3E6")) +
+
+  labs(title = "Single Release",
+       color = "System",
+       y = "Average Population Size") +
+  scale_y_continuous(breaks=c(6000, 8000, 10000),
+                     limits=c(6000,NA))+
+  theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0),
+          strip.background = element_blank(), #element_rect(fill="white", size=0, color="white", alpha = 0),
+          panel.spacing = unit(8, "pt"))
+
+Z_link_comb <- ggarrange(plot2, plot_1.10, nrow = 2,
+          labels = c("A", "B"))
+Z_link_comb
+
+ggsave("figs-6_11/supp-fig_7-Zlinked_editor.svg", Z_link_comb)
+ggsave("figs-6_11/supp-fig_7-Zlinked_editor.png", Z_link_comb)
+
+print("Saved to supp-fig_7-Zlinked_editor")
+```
+
+
+
+### Figure 6 - neutral equilibrium path
+
+** note: there is an error wherein, if this figure is generated as part of a knit to HTML or PDF, the venus/mars symbols do not encode properly. As such, this chunk does not run during Knit. If this chunk is run individually, not as part of a knit, then the correct annotations are made **
+
+Plotting endpoints
+
+```{r, eval = FALSE}
+XY_allele <- read.csv("data/1-19/sex_equilibriums_XY_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Allele_Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  select(-Count)
+
+XY_total <- read.csv("data/1-19/sex_equilibriums_XY_total.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  pivot_wider(names_from = Sex, values_from = Count) %>%
+  mutate(totalPop = Female + Male,
+         male_percent = Male / totalPop)
+
+XY_info <- XY_allele %>%
+  filter(Generation > 0) %>%
+  group_by(Generation, Allele, iF, Run) %>% # desex
+  summarise(Allele_Count = sum(Allele_Count)) %>%
+  merge(XY_total) %>%
+  pivot_wider(names_from = Allele, values_from = Allele_Count) %>%
+  mutate(Old_Sex = Y / (totalPop * 2),
+         New_Sex = E / (totalPop * 2))
+
+ZW_allele <- read.csv("data/1-19/sex_equilibriums_ZW_NEWallele.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Allele_Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  select(-Count)
+
+ZW_total <- read.csv("data/1-19/sex_equilibriums_ZW_total.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count),
+            iF = as.numeric(iF)) %>%
+  pivot_wider(names_from = Sex, values_from = Count) %>%
+  mutate(totalPop = Female + Male,
+         male_percent = Male / totalPop)
+
+ZW_info <- ZW_allele %>%
+  filter(Generation > 0) %>%
+  group_by(Generation, Allele, iF, Run) %>% # desex
+  summarise(Allele_Count = sum(Allele_Count)) %>%
+  merge(ZW_total) %>%
+  pivot_wider(names_from = Allele, values_from = Allele_Count) %>%
+  mutate(Old_Sex =  Z / (totalPop * 2),
+         New_Sex = E / (totalPop * 2))
+
+ZW_small <- ZW_info %>%
+  select(Generation, iF, Run, male_percent, Old_Sex, New_Sex) %>%
+  mutate(System = "ZW")
+XY_small <- XY_info %>%
+  select(Generation, iF, Run, male_percent, Old_Sex, New_Sex) %>%
+  mutate(System = "XY")
+
+## Generation 500
+endpoint_fig2 <- rbind(ZW_small, XY_small) %>%
+  filter(Generation == 500) %>%
+  ggplot(aes(x = Old_Sex, y = New_Sex,
+             group = interaction(Run, Generation, System),
+             fill = male_percent,
+             shape = System)) +
+  geom_point(size = 2.2) + 
+  scale_shape_manual(values = c(23, 24)) +
+  scale_fill_viridis(option = "plasma",
+                     limits = c(0.23, 0.5585)) +
+  labs(x = "Frequency of Old Sex Chromosome (Y or Z)",
+       y = "Frequency of New Sex Chromosome (a)",
+       title = "Path of Sex Chromosome Turnover",
+       shape = "Starting System",
+       fill = "Percent Males") +
+  theme_light() +
+  scale_x_continuous(breaks = c(0.0, 0.25, 0.5, 0.75)) +
+  scale_y_continuous(breaks = c(0.0, 0.25, 0.5, 0.75))
+
+endpoint_startpoint <- rbind(ZW_small, XY_small) %>%
+  filter(Generation == 500) %>% 
+  mutate(outline = ifelse(male_percent == 0.5,
+      #filter((iF %in% c(0.04, 0.735) & Run == 1) | (iF %in% c(0.325, 0.645) & Run == 2)) %>%
+      "a", "b")) %>%
+  arrange(desc(outline)) %>%
+  ggplot(aes(x = Old_Sex, y = New_Sex,
+             group = interaction(Run, Generation, System),
+             fill = male_percent,
+             color = outline,
+             shape = System)) +
+  geom_point(size = 2.2, stroke = 1.0) + 
+  scale_shape_manual(values = c(23, 24)) +
+  scale_fill_viridis(option = "plasma") +
+  scale_color_manual(values = c("#61D3E6", "black"), guide = FALSE) +
+  labs(x = "Frequency of Old Sex Chromosome (Y or Z)",
+       y = "Frequency of New Sex Chromosome\n(Knockedout Aromatase)",
+       title = " ",
+       shape = "Starting System",
+       fill = "Percent Males") +
+  theme_light() +
+  scale_x_continuous(breaks = c(0.0, 0.25, 0.5, 0.75)) +
+  scale_y_continuous(breaks = c(0.0, 0.25, 0.5, 0.75))
+
+## get iF's
+random_subset <- rbind(ZW_small, XY_small) %>% #filter(Generation > 450, System == "XY", Generation > 450) %>% select(iF) %>% unique()
+  #filter(Generation == 500, male_percent > 0.49, male_percent < 0.51) %>%
+  filter(Run == 1, Generation > 5) %>% #, male_percent > 0.49, male_percent < 0.51) %>%
+  filter(iF %in% c(0.05, 0.325, 0.75)) %>%
+  ggplot(aes(x = Old_Sex, y = New_Sex,
+             group = interaction(Run, Generation, System),
+             fill = Generation,
+             shape = System)) +
+  geom_point(size = 2.2) + 
+  facet_wrap(~iF, ncol = 3) +
+  scale_shape_manual(values = c(23, 24)) +
+  scale_fill_viridis(option = "plasma") +
+  labs(x = "Frequency of Old Sex Chromosome (Y or Z)",
+       y = "Frequency of New Sex Chromosome (a)",
+       title = "Path of Sex Chromosome Turnover",
+       shape = "Starting System",
+       fill = "Starting Introduction Frequency") +
+  theme_light() +
+  scale_x_continuous(breaks = c(0.0, 0.25, 0.5, 0.75)) +
+  scale_y_continuous(breaks = c(0.0, 0.25, 0.5, 0.75))
+
+sex_v_time <- rbind(ZW_small, XY_small) %>%
+  filter(Run == 1, iF %in% c(0.05, 0.325, 0.75)) %>%
+  ggplot(aes(x = Generation, y = New_Sex, group = paste(iF, Run, System), color = male_percent)) +
+  geom_line() + geom_point() +
+  scale_color_viridis(option = "plasma") +
+  facet_wrap(~System) +
+  labs(y = "Percent of New Sex Chromosome (a)",
+       color = "Percent Males")
+
+gen500 <- rbind(ZW_small, XY_small) %>%
+  filter(Generation %in% c(500))
+model = lm(New_Sex~iF, data = gen500) 
+summary(model)
+
+#(Intercept)  0.04183    iF           0.75327 
+
+rbind(ZW_small, XY_small) %>%
+  filter(Generation %in% c(1, 500)) %>%
+  ggplot(aes(x = iF, y = New_Sex)) +
+  geom_point() + geom_abline(slope = 0.75327, intercept = 0.04183, color = "red") +
+  facet_wrap(~Generation)
+
+select_points <- rbind(ZW_small, XY_small) %>%
+  filter(Generation %in% c(1, 500), ((iF*1000) %% 50) == 0) %>%
+  #filter((iF %in% c(0.04, 0.735) & Run == 1) | (iF %in% c(0.325, 0.645) & Run == 2)) %>%
+  mutate(xgroup = paste(System, Generation, sep = " gen ")) %>%
+  ggplot(aes(x = xgroup, y = New_Sex, fill = male_percent, #color = male_percent,
+             group = paste(System, iF, Run),
+             shape = System)) +
+  geom_line() +
+  geom_point(size = 4) +
+  scale_shape_manual(values = c(23, 24)) +
+  scale_fill_viridis(option = "plasma",
+                     limits = c(0.23, 0.5585)) +
+  scale_color_viridis(option = "plasma") +
+  labs(title = "",
+       x = "Generation",
+       y = "Frequency of New Sex Chromosome",
+       shape = "Starting System",
+       fill = "Percent Males") +
+  theme_light() +
+  scale_y_continuous(breaks = c(0.0, 0.25, 0.5, 0.75)) +
+  scale_x_discrete(labels= c("1", "500", "1", "500"))
+
+rbind(ZW_small, XY_small) %>%
+  filter(Generation %in% c(1, 500), ((iF*1000) %% 50) == 0) %>% select(iF) %>% unique()
+
+twopanel_eq <- ggarrange(endpoint_fig2 + labs(title = ""), select_points, common.legend = TRUE,
+                       legend = "right", widths = c(7, 3),
+                       labels = c("A", "B"))
+
+twopanel_eq2 <- ggarrange(select_points, endpoint_fig2 + labs(title = ""), common.legend = TRUE,
+                       legend = "left", widths = c(3, 7),
+                       labels = c("A", "B"))
+twopanel_eq2 # save in studio, dimensions are 900 x 400
+```
+
+
+```{r, eval = FALSE}
+text_size = 2.75
+arrow_size = 0.8
+
+sdf_annotated <- endpoint_fig2 +
+  annotate("text", size = text_size, hjust = 0,
+           x = 0.22, y = 0.58, 
+           label = ": WW Edit / Edit\n: WW Edit / No Edit") +
+  # MALE FEM
+  annotate("text", size = text_size, hjust = 0, x = 0.2, y = 0.58, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.201, y = 0.58, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.201, y = 0.582, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.2, y = 0.582, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0,
+           x = 0, y = 0.44, 
+           label = ": XX Edit / Edit\n: XX Edit / No Edit") +
+  # MALE FEM
+  annotate("text", size = text_size, hjust = 0, x = -0.02, y = 0.44, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = -0.021, y = 0.44, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = -0.021, y = 0.442, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = -0.02, y = 0.442, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0,
+           x = 0.3, y = 0.1, 
+           label = ": XY No Edit / No Edit\n: XX No Edit / No Edit") +
+  # MALE FEM
+  annotate("text", size = text_size, hjust = 0, x = 0.28, y = 0.1, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.281, y = 0.1, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.281, y = 0.102, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.28, y = 0.102, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0,
+           x = 0.51, y = 0.2, 
+           label = ": ZZ No Edit / No Edit\n: ZW No Edit / No Edit") +
+  annotate("text", size = text_size, hjust = 0, x = 0.49, y = 0.2, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.491, y = 0.2, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.491, y = 0.202, label = "♂\n♀", fontface=2) +
+  annotate("text", size = text_size, hjust = 0, x = 0.49, y = 0.202, label = "♂\n♀", fontface=2) +
+  annotate("segment", x = 0.19, y = 0.61, xend = 0.08, yend = 0.71,
+         arrow = arrow(type = "closed", length = unit(0.03, "npc")),
+         color = "#61D3E6", size = arrow_size) +
+  annotate("segment", x = 0, y = 0.5, xend = 0, yend = 0.71,
+         arrow = arrow(type = "closed", length = unit(0.03, "npc")),
+         color = "#e32f6c", size = arrow_size) +
+  annotate("segment", x = 0.3, y = 0.05, xend = 0.27, yend = 0.015,
+         arrow = arrow(type = "closed", length = unit(0.03, "npc")),
+         color = "#e32f6c", size = arrow_size) +
+  annotate("segment", x = 0.6, y = 0.15, xend = 0.725, yend = 0.015,
+         arrow = arrow(type = "closed", length = unit(0.03, "npc")),
+         color = "#61D3E6", size = arrow_size)
+
+sdf_annotated
+
+fig_height= 4
+fig_width = 7
+
+endpoint_fig2
+
+ggsave("figs-6_11/fig_6-endpoint_UNANNOTATED.svg", plot = endpoint_fig2,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs-6_11/fig_6-endpoint_UNANNOTATED.png", plot = endpoint_fig2,
+       height = fig_height, width = fig_width, bg = "white")
+
+#ggsave("figs-6_11/fig_6-endpoint_equilibrium.svg", plot = sdf_annotated,
+#       height = fig_height, width = fig_width, bg = "white")
+#ggsave("figs-6_11/fig_6-endpoint_equilibrium.png", plot = sdf_annotated,
+#       height = fig_height, width = fig_width, bg = "white")
+
+print("Saved to fig_6-endpoint_equilibrium")
+
+```
+
+### Supplemental Figure 8 - Number of Males vs. Females
+
+```{r, fig.height=3, fig.width=6.5}
+fig_height <- knitr::opts_current$get("fig.height")
+fig_width <- knitr::opts_current$get("fig.width")
+
+#fig_height = 3
+#fig_width = 6.5
+
+total_pc2 <- read.csv("data/3-5/full_five_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "gap", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "tpc")
+
+supA <- total_pc2 %>% filter(repeats == 1, iF == 0.2, Generation < 6) %>%
+  filter(type %in% c("XY")) %>%
+  group_by(Generation, iF, gap, repeats, type, Sex) %>%
+  summarize(Count = mean(Count)) %>%
+  ggplot(aes(x=Generation, y = Count, color = Sex)) +
+  geom_line(size = 1.12) + 
+  scale_color_manual(values = c("#e32f6c", "#61D3E6", "#6d2ac7", "#440154")) +
+  scale_linetype_manual(values = c(1, 4, 2)) +
+  labs(title = "XX males released") +
+  theme_light()
+  
+supB <- total_pc2 %>% filter(repeats == 1, iF == 0.2, Generation < 6) %>%
+  filter(type %in% c("XYnoBump")) %>%
+  group_by(Generation, iF, gap, repeats, type, Sex) %>%
+  summarize(Count = mean(Count)) %>%
+  ggplot(aes(x=Generation, y = Count, color = Sex)) +
+  geom_line(size = 1.12) + 
+  scale_color_manual(values = c("#e32f6c", "#61D3E6", "#75c3ca", "#6d2ac7", "#440154")) +
+  scale_linetype_manual(values = c(1, 4, 2)) +
+  labs(title = "XY males released") +
+  theme_light()
+
+sup_fig_8 <- ggarrange(supA, supB, ncol = 2,
+          labels = c("A", "B"),
+          common.legend = TRUE, legend = "right")
+
+ggsave("figs-6_11/supp-fig_8-male_v_female-total_pop.svg", plot = sup_fig_8,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs-6_11/supp-fig_8-male_v_female-total_pop.png", plot = sup_fig_8,
+       height = fig_height, width = fig_width, bg = "white")
+
+sup_fig_8
+
+print("Saved to supp-fig_8-male_v_female-total_pop")
+```
+
+
+
+
+
+### Figure 7 - Suppression with multiple releases
+
+Infinite Releases, and combine
+
+```{r}
+total_pc3 <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "tpc")
+
+panel2.2 <- total_pc3 %>% filter(iF %in% c("0.1")) %>%
+  filter(type %in% c("XY", "ZW", "fsRIDL", "ZWviableBump")) %>%
+  group_by(Generation, iF, rd, efficiency, repeats, type, Run) %>%
+  summarize(Count = sum(Count)) %>% #desexed
+  group_by(Generation, iF, rd, efficiency, repeats, type) %>%
+  summarize(Count = mean(Count)) %>%
+  ggplot(aes(x=Generation, y = Count, 
+             group = interaction(type, iF), color = type, linetype = iF)) +
+  geom_line(size = 1.12) + 
+  scale_color_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154")) +
+  scale_linetype_manual(values = c(1, 4, 2)) +
+  labs(title = "10% Introduction Frequency",
+       color = "System",
+       linetype = "Introduction\nFrequency",
+       y = "Average Population Size") +
+  scale_y_continuous(breaks=c(0,2500, 5000, 7500, 10000)) +
+  theme_light()
+```
+
+vs. IntroFreq:
+
+```{r, fig.height = 6, fig.width = 6}
+
+## point plots
+p1 <- total_pc3 %>% 
+  filter(Sex == "Female", efficiency == "1.0") %>%
+  filter((Count == 0) | Generation == 50) %>%
+  filter(type %in% c("XY", "ZW", "ZWviableBump", "fsRIDL")) %>%
+  mutate(type = if_else(type %in% c("XY", "fsRIDL"), type, 
+                        if_else(type == "ZWviableBump", "ZW - WW viable, release ZW", "ZW - WW nonviable, release ZZ"))) %>%
+  group_by(Sex, iF, rd, efficiency, repeats, type, Run) %>%
+  summarize(collapseGen = ifelse(max(Count) != 0, 1000, min(Generation))) %>%
+  group_by(iF, rd, efficiency, repeats, type) %>%
+  summarize(avg_collapseGen = mean(collapseGen),
+            min_collapseGen = min(collapseGen),
+            max_collapseGen = max(collapseGen)) %>%
+  select(iF, type, avg_collapseGen, min_collapseGen, max_collapseGen) %>%
+  filter(avg_collapseGen <= 50) %>%
+  ggplot(aes(x = iF, y = avg_collapseGen, group = type, 
+             color = type,
+             shape = type)) +
+  geom_point(size = 4) +
+  geom_line(size = 0.5) +
+  #geom_errorbar(aes(ymin = min_collapseGen, ymax = max_collapseGen)) +
+  #scale_color_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154")) +
+  scale_color_manual(
+    # values = c("#61D3E6","#440154",  "#e32f6c", "#6d2ac7", "black"),
+    values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154"), # added "white" when needing the extra space
+    limits = \(x) c(x[1], x[2], x[3], x[4]) # previously x[3], " ", x[4])
+  ) +
+  #scale_shape_manual(values = c(15, 16, 17, 18, 18),
+  #                   limits = \(x) c(x[1], x[2], x[3], " ", x[4])) +
+  scale_shape_manual(values = c(15, 16, 17, 18),
+                     limits = \(x) c(x[1], x[2], x[3], x[4])) +
+  labs(title = "Average generation of collapse, for each type and introduction frequency",
+       x = "Introduction Frequency",
+       y = "Average Generation of Collapse",
+       color = "System",
+       shape = "System") + theme_light()
+
+title_text_size = 10
+
+top <- ggarrange(panel2.2 + theme(legend.position = "none",
+                                  plot.title = element_text(size=title_text_size)), 
+          as_ggplot(get_legend(p1)), ncol = 2, widths = c(1.6, 1))
+
+fig7 <- ggarrange(top, p1 + theme(legend.position = "none",
+                                  plot.title = element_text(size=title_text_size)),
+          nrow = 2, heights = c(0.8, 1))
+
+ggsave("figs-6_11/fig_7-continuous_release-sex_systems.svg", plot = fig7,
+       height = 6, width = 6, bg = "white")
+ggsave("figs-6_11/fig_7-continuous_release-sex_systems.png", plot = fig7,
+       height = 6, width = 6, bg = "white")
+
+fig7
+
+print("Saved to fig_7-continuous_release-sex_systems")
+```
+
+
+
+### Supplemental Figure 9 - lower efficiency, XY and ZW vs. fsRIDL
+
+```{r, fig.width=8, fig.height=7}
+total_PC_he <- read.csv("data/2-23/51releases_highEfficiencies_2_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count), efficiency = as.numeric(efficiency)) %>%
+  mutate(type2 = "tpc")
+
+# check that all the pieces are here
+total_PC_he %>% filter(Sex == "Female", Generation == 50) %>%
+  group_by(efficiency, type, iF) %>%
+  summarize(n = n()) %>%
+  select(n) %>% unique()
+
+all_dots_sup_HE <- total_PC_he %>% 
+  filter(Sex == "Female", type %in% c("XY", "ZW", "fsRIDL"), efficiency != 0.99) %>%
+  filter((Count == 0) | Generation == 50) %>%
+  group_by(Sex, iF, rd, efficiency, repeats, type, Run) %>%
+  summarize(collapseGen = min(Generation),
+            collapsed = ifelse((min(Count) == 0), "collapsed", "did not collapse")) %>%
+  mutate(efficiency = factor(ifelse(type == "fsRIDL", 2, efficiency),
+                             levels = c(2, 1, 0.95, 0.9, 0.8))) %>%
+  ggplot(aes(x = iF, y = collapseGen)) +
+  geom_jitter(width = 0.2, height = 0, aes(group = Run, color = as.character(efficiency), shape = collapsed)) +
+  facet_wrap(~type, nrow = 3) +
+  #scale_color_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154")) +
+  #scale_shape_manual(values = c(15, 16, 17, 18)) +
+  labs(title = "Average generation of collapse, for each type and introduction frequency",
+       x = "Introduction Frequency",
+       y = "Average Generation of Collapse",
+       color = "Editor Efficiency",
+       shape = "Outcome") + theme_light() +
+  theme(strip.text.x = element_text(size=12, color = "black", hjust = 0), #, face = "bold"),
+          strip.background = element_blank()) +
+  scale_color_manual(
+    # values = c("#61D3E6","#440154",  "#e32f6c", "#6d2ac7", "black"),
+    values = c("#e32f6c", "#440154",  "#61D3E6", "#6d2ac7", "#3a3a3a"))
+
+he_suppression_annotated <- 
+  ggarrange(all_dots_sup_HE +
+            guides(shape = guide_legend(order = 1),col = guide_legend(order = 2))) + 
+  annotate("rect", 
+           xmin = 0.82, 
+           xmax = 0.9, 
+           ymin = 0.32, 
+           ymax = 0.35,
+           color = "white", fill = "white", linewidth = 0)
+
+he_suppression_annotated
+
+ggsave("figs-6_11/supp-fig_9-moderate_efficiencies-suppression.svg", plot = he_suppression_annotated,
+       height = 7, width = 8)
+ggsave("figs-6_11/supp-fig_9-moderate_efficiencies-suppression.png", plot = he_suppression_annotated,
+       height = 7, width = 8)
+
+print("saved to supp-fig_9-moderate_efficiencies-suppression")
+```
+
+
+
+
+### Supplemental Figure 9 - SSC / suppression with multiple releases in more systems
+
+```{r, fig.height=4, fig.width=8}
+fig_height <- knitr::opts_current$get("fig.height")
+fig_width <- knitr::opts_current$get("fig.width")
+
+total_pc3 <- read.csv("data/2-23/ais_51releases_noMC_total_pop.csv") %>%
+  filter(Generation != "Generation") %>%
+  select(-X) %>%
+  separate(Run, c(NA, "iF", NA, "rd", NA, "efficiency", NA, "repeats", "type", "Run"), sep = "_") %>%
+  transform(Generation = as.numeric(Generation), Count = as.numeric(Count)) %>%
+  mutate(type2 = "tpc")
+
+p2 <- total_pc3 %>% 
+  filter(Sex == "Female", efficiency == "1.0") %>%
+  filter((Count == 0) | Generation == 50) %>%
+  filter(!type %in% c("XY", "ZW", "ZWviableBump", "fsRIDL")) %>%
+  mutate(type = ifelse(type == "XYsterile", "XY, also cleaving fertility",
+                       ifelse(type == "ZWsterile", "ZW - WW nonviable,\nalso cleaving fertility",
+                              ifelse(type == "XYnoBump", "XY, release XY",
+                                     "ZW - WW viable, release ZZ")))) %>%
+  group_by(Sex, iF, rd, efficiency, repeats, type, Run) %>%
+  summarize(collapseGen = ifelse(max(Count) != 0, 1000, min(Generation))) %>%
+  group_by(iF, rd, efficiency, repeats, type) %>%
+  summarize(avg_collapseGen = mean(collapseGen),
+            min_collapseGen = min(collapseGen),
+            max_collapseGen = max(collapseGen)) %>%
+  select(iF, type, avg_collapseGen, min_collapseGen, max_collapseGen) %>%
+  filter(avg_collapseGen <= 50) %>%
+  ggplot(aes(x = iF, y = avg_collapseGen, group = type, 
+             color = type,
+             shape = type)) +
+  geom_point(size = 4) +
+  geom_line(size = 0.5) +
+  #geom_errorbar(aes(ymin = min_collapseGen, ymax = max_collapseGen)) +
+  scale_color_manual(values = c("#6d2ac7", "#e32f6c", "#61D3E6", "#440154")) +
+  scale_shape_manual(values = c(15, 16, 17, 18)) +
+  labs(title = "Average generation of collapse, for each type and introduction frequency",
+       x = "Introduction Frequency",
+       y = "Average Generation of Collapse",
+       color = "System",
+       shape = "System") + theme_light() +
+  theme(plot.title = element_text(size=10))
+
+p2
+
+ggsave("figs-6_11/supp-fig_10-collapse_gens-2.svg", plot = p2,
+       height = fig_height, width = fig_width, bg = "white")
+ggsave("figs-6_11/supp-fig_10-collapse_gens-2.png", plot = p2,
+       height = fig_height, width = fig_width, bg = "white")
+
+print("Saved to supp-fig_10-collapse_gens-2.svg")
+```
+
+
+
